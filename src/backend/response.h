@@ -9,6 +9,7 @@ namespace Backend::Core
 
 enum class Direction
 {
+    kNone,
     kX,
     kY,
     kZ
@@ -16,12 +17,14 @@ enum class Direction
 
 enum class Domain
 {
+    kNone,
     kTime,
     kFreq
 };
 
 enum class Dimension
 {
+    kNone,
     kAccel,
     kVel,
     kDisp,

@@ -70,7 +70,7 @@ QList<Response> readResponses(Visom::VaufxFile& file)
     {
         auto& props = responses[i].props;
         auto const& subheader = subheaders[i];
-        props.id = i;
+        props.id = 1 + i;
         props.domain = Domain::kTime;
         props.dimension = (Dimension) subheader.dimension;
         props.sampleRate = header.sampleRate;

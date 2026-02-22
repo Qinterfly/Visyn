@@ -4,9 +4,9 @@ using namespace Backend::Core;
 
 ResponseProperties::ResponseProperties()
     : id(0)
-    , direction(Direction::kY)
-    , domain(Domain::kTime)
-    , dimension(Dimension::kAccel)
+    , direction(Direction::kNone)
+    , domain(Domain::kNone)
+    , dimension(Dimension::kNone)
     , sampleRate(0.0)
 {
 }
