@@ -2,6 +2,7 @@
 #include <visom/vaufxfile.h>
 
 #include "fileutility.h"
+#include "response.h"
 
 using namespace Backend::Core;
 

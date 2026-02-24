@@ -4,11 +4,14 @@
 
 #include <QDir>
 
-#include "response.h"
-
 namespace Visom
 {
 class VaufxFile;
+}
+
+namespace Backend::Core
+{
+class Response;
 }
 
 namespace Backend::Utility

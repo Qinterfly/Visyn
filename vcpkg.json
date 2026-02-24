@@ -1,0 +1,7 @@
+{
+	"name": "visyn",
+	"dependencies": [
+		"eigen3",
+		"matio"
+	]
+}

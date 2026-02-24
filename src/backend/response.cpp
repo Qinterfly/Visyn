@@ -20,22 +20,46 @@ ValueType Response::type() const
     return mType;
 }
 
-QList<Real> const& Response::keys() const
+VectorXd const& Response::keys() const
 {
     return mKeys;
 }
 
-QList<Real> const& Response::realValues() const
+VectorXd const& Response::realValues() const
 {
     return mRealValues;
 }
 
-QList<Complex> const& Response::complexValues() const
+VectorXcd const& Response::complexValues() const
 {
     return mComplexValues;
 }
 
-void Response::setKeys(QList<Real> const& keys)
+double Response::key(int iSample) const
+{
+    if (numKeys() > 0 && iSample < mKeys.size())
+        return mKeys[iSample];
+    if (iSample < numValues() && props.sampleRate > std::numeric_limits<double>::epsilon())
+        return 1.0 / props.sampleRate * iSample;
+    return std::nan("0");
+}
+
+int Response::numKeys() const
+{
+    return mKeys.size();
+}
+
+int Response::numValues() const
+{
+    return mType == ValueType::kReal ? mRealValues.size() : mComplexValues.size();
+}
+
+bool Response::isEmpty() const
+{
+    return numValues() == 0;
+}
+
+void Response::setKeys(VectorXd const& keys)
 {
     mKeys = keys;
 }
@@ -43,22 +67,22 @@ void Response::setKeys(QList<Real> const& keys)
 void Response::setValues(std::vector<float> const& values)
 {
     int numValues = values.size();
-    QList<Real> newValues(numValues);
+    VectorXd newValues(numValues);
     for (int i = 0; i != numValues; ++i)
-        newValues[i] = (Real) values[i];
+        newValues[i] = (double) values[i];
     setValues(newValues);
 }
 
-void Response::setValues(QList<Real> const& values)
+void Response::setValues(VectorXd const& values)
 {
     mType = ValueType::kReal;
     mRealValues = values;
-    mComplexValues = QList<Complex>();
+    mComplexValues = VectorXcd();
 }
 
-void Response::setValues(QList<Complex> const& values)
+void Response::setValues(VectorXcd const& values)
 {
     mType = ValueType::kComplex;
-    mRealValues = QList<Real>();
+    mRealValues = VectorXd();
     mComplexValues = values;
 }

@@ -1,8 +1,10 @@
 #ifndef RESPONSE_H
 #define RESPONSE_H
 
-#include <complex>
-#include <QList>
+#include <Eigen/Core>
+#include <QString>
+
+using namespace Eigen;
 
 namespace Backend::Core
 {
@@ -37,9 +39,6 @@ enum class ValueType
     kComplex
 };
 
-using Real = double;
-using Complex = std::complex<double>;
-
 struct ResponseProperties
 {
     ResponseProperties();
@@ -62,23 +61,28 @@ public:
     ~Response() = default;
 
     ValueType type() const;
-    QList<Real> const& keys() const;
-    QList<Real> const& realValues() const;
-    QList<Complex> const& complexValues() const;
+    VectorXd const& keys() const;
+    VectorXd const& realValues() const;
+    VectorXcd const& complexValues() const;
 
-    void setKeys(QList<Real> const& keys);
+    double key(int iSample) const;
+    int numKeys() const;
+    int numValues() const;
+    bool isEmpty() const;
+
+    void setKeys(VectorXd const& keys);
     void setValues(std::vector<float> const& values);
-    void setValues(QList<Real> const& values);
-    void setValues(QList<Complex> const& values);
+    void setValues(VectorXd const& values);
+    void setValues(VectorXcd const& values);
 
 public:
     ResponseProperties props;
 
 private:
     ValueType mType;
-    QList<Real> mKeys;
-    QList<Real> mRealValues;
-    QList<Complex> mComplexValues;
+    VectorXd mKeys;
+    VectorXd mRealValues;
+    VectorXcd mComplexValues;
 };
 
 }

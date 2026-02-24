@@ -4,6 +4,8 @@
 
 #include <QTest>
 
+#include "response.h"
+
 namespace Tests
 {
 
@@ -16,9 +18,15 @@ public:
     virtual ~TestBackend() = default;
 
 private slots:
+    // File
     void testReadVaufx();
-};
 
+    // Math
+    void testSegmentResponse();
+
+private:
+    Backend::Core::Response readTestResponse(QString const& pathFile);
+};
 }
 
 #endif // TESTBACKEND_H
