@@ -58,6 +58,10 @@ class Response
 {
 public:
     Response();
+    Response(VectorXd const& values);
+    Response(VectorXcd const& values);
+    Response(VectorXd const& keys, VectorXd const& values);
+    Response(VectorXd const& keys, VectorXcd const& values);
     ~Response() = default;
 
     ValueType type() const;

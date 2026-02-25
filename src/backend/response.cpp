@@ -15,6 +15,28 @@ Response::Response()
 {
 }
 
+Response::Response(VectorXd const& values)
+{
+    setValues(values);
+}
+
+Response::Response(VectorXcd const& values)
+{
+    setValues(values);
+}
+
+Response::Response(VectorXd const& keys, VectorXd const& values)
+{
+    setKeys(keys);
+    setValues(values);
+}
+
+Response::Response(VectorXd const& keys, VectorXcd const& values)
+{
+    setKeys(keys);
+    setValues(values);
+}
+
 ValueType Response::type() const
 {
     return mType;

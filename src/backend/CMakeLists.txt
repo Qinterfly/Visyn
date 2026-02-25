@@ -9,6 +9,7 @@ set(BACKEND_HEADERS
     project.h
     response.h
     harmonicsolver.h
+    edgedetector.h
 )
 
 set(BACKEND_SOURCES
@@ -17,6 +18,7 @@ set(BACKEND_SOURCES
     project.cpp
     response.cpp
     harmonicsolver.cpp
+    edgedetector.cpp
 )
 
 qt_add_library(backend STATIC

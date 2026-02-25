@@ -22,9 +22,11 @@ private slots:
     void testReadVaufx();
 
     // Math
-    void testSegmentResponse();
+    void testStatistics();
+    void testHarmonicSolver();
 
 private:
+    bool isEqual(double firstValue, double secondValue, double precision);
     Backend::Core::Response readTestResponse(QString const& pathFile);
 };
 }

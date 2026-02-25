@@ -1,13 +1,10 @@
 #ifndef HARMONICSOLVER_H
 #define HARMONICSOLVER_H
 
-#include <Eigen/Core>
-#include <QList>
+#include "response.h"
 
 namespace Backend::Core
 {
-
-class Response;
 
 struct HarmonicOptions
 {
@@ -21,6 +18,8 @@ struct HarmonicOptions
 
 struct HarmonicSolution
 {
+    Response freqs;
+    Response filterFreqs;
 };
 
 //! Class to convert time responses to harmonic ones
@@ -36,12 +35,7 @@ public:
     HarmonicOptions options;
 
 private:
-    void evaluateFreqs(Response const& response);
-
-private:
     QList<Response> const& mResponses;
-    Eigen::VectorXd mXFreqs;
-    Eigen::VectorXd mYFreqs;
 };
 
 }
