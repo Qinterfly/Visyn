@@ -20,10 +20,11 @@ public:
 private slots:
     // File
     void testReadVaufx();
+    void testReadMat();
 
     // Math
     void testStatistics();
-    // void testSegmentResponse();
+    void testSegmentResponse();
     void testHarmonicResponses();
 
 private:

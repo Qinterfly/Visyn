@@ -49,9 +49,11 @@ struct ResponseProperties
     Domain domain;
     Dimension dimension;
     double sampleRate;
+    int numAverages;
     QString node;
     QString component;
     QString title;
+    QString info;
 };
 
 class Response

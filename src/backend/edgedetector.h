@@ -22,8 +22,6 @@ public:
     int width;
     VectorXd thresholds;
     VectorXi scales;
-    bool isMax;
-    bool isMin;
 
 private:
     std::vector<VectorXd> createGaussScaleSpace() const;

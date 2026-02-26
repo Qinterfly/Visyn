@@ -63,6 +63,7 @@ HarmonicSolution HarmonicSolver::solve()
     solution.freqs = Response(xFreqs, yFreqs);
     solution.filterFreqs = Response(xFreqs, yFilterFreqs);
     solution.segments = segments;
+    solution.spectrums = spectrums;
 
     return solution;
 }
@@ -176,11 +177,11 @@ QList<Response> HarmonicSolver::computeSpectrums(Response const& syncResponse, Q
                 // Save the data
                 countAverages[iResponse] += 1;
                 harmonicData(iSegment, iResponse) += std::complex<double>(I, -Q);
-
-                // Shift indices
-                iCurrEnd = iCurrStart - 1;
-                iCurrStart = iCurrEnd - iShift;
             }
+
+            // Shift indices
+            iCurrEnd = iCurrStart - 1;
+            iCurrStart = iCurrEnd - iShift;
         }
 
         // Average the results
@@ -209,6 +210,7 @@ QList<Response> HarmonicSolver::computeSpectrums(Response const& syncResponse, Q
     {
         Response& spectrum = spectrums[iResponse];
         spectrum.props = mResponses[iResponse].props;
+        spectrum.props.domain = Domain::kFreq;
         spectrum.setKeys(freqs);
         spectrum.setValues((VectorXcd) harmonicData(indexing::all, iResponse));
     }

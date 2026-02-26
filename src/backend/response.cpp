@@ -8,6 +8,7 @@ ResponseProperties::ResponseProperties()
     , domain(Domain::kNone)
     , dimension(Dimension::kNone)
     , sampleRate(0.0)
+    , numAverages(0)
 {
 }
 

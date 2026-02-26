@@ -13,8 +13,6 @@ EdgeDetector::EdgeDetector(VectorXd const& data)
     , width(3)
     , thresholds(4)
     , scales(4)
-    , isMax(true)
-    , isMin(false)
     , mData(data)
 {
     thresholds << 0.1, 0.2, 0.3, 0.4;
@@ -142,7 +140,7 @@ std::vector<bool> EdgeDetector::findLocalExtrema(VectorXd const& data, double th
         for (int i = iStart; i <= iEnd; ++i)
         {
             winmax[i] = rdataMax.segment(i - scale, 2 * scale + 1).maxCoeff();
-            winmin[i] = rdataMin.segment(i - scale, 2 * scale + 1).minCoeff();
+            winmin[i] = rdataMin.segment(i - scale, 2 * scale + 1).maxCoeff();
         }
     }
 
@@ -182,7 +180,7 @@ std::vector<bool> EdgeDetector::findLocalExtrema(VectorXd const& data, double th
     // Set the result
     std::vector<bool> extrema(numData);
     for (int i = 0; i != numData; ++i)
-        extrema[i] = (isMax && maxima[i]) || (isMin && minima[i]);
+        extrema[i] = maxima[i] || minima[i];
 
     return extrema;
 }

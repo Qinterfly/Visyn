@@ -34,6 +34,7 @@ struct HarmonicSolution
     Response freqs;
     Response filterFreqs;
     QList<Segment> segments;
+    QList<Response> spectrums;
 };
 
 //! Class to convert time responses to harmonic ones

@@ -9,6 +9,9 @@ namespace Visom
 class VaufxFile;
 }
 
+struct _mat_t;
+typedef struct _mat_t mat_t;
+
 namespace Backend::Core
 {
 class Response;
@@ -35,6 +38,7 @@ QString combineFilePath(T const& first, Args... args)
 
 QList<Backend::Core::Response> readResponses(QString const& pathFile);
 QList<Backend::Core::Response> readResponses(Visom::VaufxFile& file);
+QList<Backend::Core::Response> readResponses(mat_t* mat);
 }
 
 #endif // FILEUTILITY_H
