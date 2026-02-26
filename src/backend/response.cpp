@@ -57,6 +57,44 @@ VectorXcd const& Response::complexValues() const
     return mComplexValues;
 }
 
+VectorXd Response::phases() const
+{
+    if (mType != ValueType::kComplex)
+        return {};
+    int count = numValues();
+    VectorXd result(count);
+    for (int i = 0; i != count; ++i)
+    {
+        auto value = mComplexValues[i];
+        result[i] = std::atan2(value.imag(), value.real());
+    }
+    return result;
+}
+
+int Response::index(double key) const
+{
+    int iFound = -1;
+    int count = numKeys();
+    if (count > 0)
+    {
+        double minDist = std::numeric_limits<double>::max();
+        for (int i = 0; i != count; ++i)
+        {
+            double dist = std::abs(mKeys[i] - key);
+            if (dist < minDist)
+            {
+                iFound = i;
+                minDist = dist;
+            }
+        }
+    }
+    else
+    {
+        iFound = floor(key * props.sampleRate);
+    }
+    return iFound;
+}
+
 double Response::key(int iSample) const
 {
     if (numKeys() > 0 && iSample < mKeys.size())

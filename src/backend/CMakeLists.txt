@@ -1,6 +1,7 @@
 
 find_package(Qt6 REQUIRED COMPONENTS Core LinguistTools)
 find_package(Eigen3 CONFIG REQUIRED)
+find_package(FFTW3 CONFIG REQUIRED)
 find_package(matio CONFIG REQUIRED)
 
 set(BACKEND_HEADERS
@@ -34,6 +35,7 @@ target_include_directories(backend PUBLIC
 target_link_libraries(backend PUBLIC
     Qt::Core
     Eigen3::Eigen
+    FFTW3::fftw3
     MATIO::HDF5
     MATIO::ZLIB
     matio::matio

@@ -33,6 +33,9 @@ std::pair<VectorXd, VectorXd> evaluateFreqs(Backend::Core::Response const& respo
 
 // Signal
 VectorXd convolve(VectorXd const& a, VectorXd const& b);
+VectorXcd hilbertTransform(VectorXd const& data);
+std::vector<bool> unique(VectorXd const& data, double tolerance);
+VectorXi sortIndices(VectorXd const& data);
 }
 
 #endif // MATHUTILITY_H

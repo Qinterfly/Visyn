@@ -1,3 +1,6 @@
+#include <fftw3.h>
+#include <mutex>
+
 #include "mathutility.h"
 #include "response.h"
 
@@ -5,6 +8,14 @@ using namespace Backend::Core;
 
 namespace Backend::Utility
 {
+
+static const short skRealPart = 0;
+static const short skImagPart = 1;
+static std::mutex sMutexFFT;
+
+// Helper functions
+void fft(uint numData, fftw_complex* input, fftw_complex* output, bool isInverse = false);
+uint findTransformLength(uint m);
 
 //! Compute total mean value
 double mean(Eigen::VectorXd const& data)
@@ -311,5 +322,137 @@ VectorXd convolve(VectorXd const& a, VectorXd const& b)
         for (int j = 0; j != Nb; ++j)
             result(i + j) += a(i) * b(j);
     return result;
+}
+
+//! Perform Hilbert transformation
+VectorXcd hilbertTransform(VectorXd const& data)
+{
+    // Remove the mean value from the signal
+    double meanValue = mean(data);
+    uint numData = data.size();
+    fftw_complex* pTransform = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * numData);
+    for (uint i = 0; i != numData; ++i)
+    {
+        pTransform[i][skRealPart] = data[i] - meanValue;
+        pTransform[i][skImagPart] = 0.0;
+    }
+
+    // Calculate the FFT
+    fft(numData, pTransform, pTransform, false);
+
+    // Apply the Hilbert transform to the main part of the spectrum
+    uint halfNumData = numData / 2;
+    for (uint i = 1; i != halfNumData; ++i)
+    {
+        pTransform[i][skRealPart] *= 2.0;
+        pTransform[i][skImagPart] *= 2.0;
+    }
+
+    // Multiply the central value, if necessary
+    if (numData > 1 && numData % 2 != 0)
+    {
+        pTransform[halfNumData][skRealPart] *= 2.0;
+        pTransform[halfNumData][skImagPart] *= 2.0;
+    }
+
+    // Set to zero the remaining part of the spectrum
+    for (uint i = halfNumData + 1; i != numData; ++i)
+    {
+        pTransform[i][skRealPart] = 0.0;
+        pTransform[i][skImagPart] = 0.0;
+    }
+
+    // Calculate the inverse FFT
+    fft(numData, pTransform, pTransform, true);
+
+    // Copy the result
+    VectorXcd result(numData);
+    for (uint i = 0; i != numData; ++i)
+        result[i] = std::complex<double>(pTransform[i][skRealPart], pTransform[i][skImagPart]);
+
+    // Destroy the transformation array
+    fftw_free(pTransform);
+
+    return result;
+}
+
+//! Mark unique elements of a vector
+std::vector<bool> unique(VectorXd const& data, double tolerance)
+{
+    int numData = data.size();
+    std::vector<bool> mask(numData, true);
+    for (int i = 0; i != numData; ++i)
+    {
+        if (!mask[i])
+            continue;
+        for (int j = 0; j != numData; ++j)
+        {
+            if (!mask[j] || i == j)
+                continue;
+            double diff = std::abs(data[i] - data[j]);
+            if (diff < tolerance)
+                mask[j] = false;
+        }
+    }
+    return mask;
+}
+
+//! Get sort indices of a vector
+VectorXi sortIndices(VectorXd const& data)
+{
+    size_t numData = data.size();
+    VectorXi indices(numData);
+    std::iota(indices.begin(), indices.end(), 0);
+    std::sort(indices.begin(), indices.end(), [&data](size_t i, size_t j) { return data[i] < data[j]; });
+    return indices;
+}
+
+//! Helper function to compute the 1-D fast Fourier transform
+void fft(uint numData, fftw_complex* input, fftw_complex* output, bool isInverse)
+{
+    sMutexFFT.lock();
+
+    // Create the DFT plan
+    int mode = isInverse ? FFTW_BACKWARD : FFTW_FORWARD;
+    fftw_plan plan = fftw_plan_dft_1d(numData, input, output, mode, FFTW_ESTIMATE);
+
+    // Execute the plan
+    fftw_execute(plan);
+
+    // Clean up the plan
+    fftw_destroy_plan(plan);
+    fftw_cleanup();
+
+    sMutexFFT.unlock();
+
+    // Scale the output to obtain the exact inverse values
+    if (isInverse)
+    {
+        for (uint i = 0; i != numData; ++i)
+        {
+            output[i][skRealPart] /= numData;
+            output[i][skImagPart] /= numData;
+        }
+    }
+}
+
+//! Helper function to determine the optimal length for the FFT
+uint findTransformLength(uint length)
+{
+    QList<uint> const kDividers = {2, 3, 5, 7};
+    length *= 2;
+    while (true)
+    {
+        uint minLength = length;
+        for (uint denominator : kDividers)
+        {
+            while (minLength > 1 && minLength % denominator == 0)
+                minLength /= denominator;
+        }
+        if (minLength == 1)
+            break;
+        length += 1;
+    }
+    return length;
 }
 }

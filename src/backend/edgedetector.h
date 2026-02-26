@@ -1,7 +1,9 @@
 #ifndef EDGEDETECTOR_H
 #define EDGEDETECTOR_H
 
-#include "response.h"
+#include <Eigen/Core>
+
+using namespace Eigen;
 
 namespace Backend::Core
 {
@@ -10,7 +12,7 @@ namespace Backend::Core
 class EdgeDetector
 {
 public:
-    EdgeDetector(Response const& response);
+    EdgeDetector(VectorXd const& data);
     ~EdgeDetector() = default;
 
     VectorXi detect();
@@ -20,6 +22,8 @@ public:
     int width;
     VectorXd thresholds;
     VectorXi scales;
+    bool isMax;
+    bool isMin;
 
 private:
     std::vector<VectorXd> createGaussScaleSpace() const;
@@ -27,7 +31,7 @@ private:
     std::vector<bool> findLocalExtrema(VectorXd const& data, double threshold, int scale, VectorXi const& regions = {}) const;
 
 private:
-    Response const& mResponse;
+    VectorXd const& mData;
 };
 
 }

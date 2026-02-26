@@ -2,6 +2,7 @@
 	"name": "visyn",
 	"dependencies": [
 		"eigen3",
+		"fftw3",
 		"matio"
 	]
 }

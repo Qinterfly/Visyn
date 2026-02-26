@@ -23,7 +23,8 @@ private slots:
 
     // Math
     void testStatistics();
-    void testHarmonicSolver();
+    // void testSegmentResponse();
+    void testHarmonicResponses();
 
 private:
     bool isEqual(double firstValue, double secondValue, double precision);

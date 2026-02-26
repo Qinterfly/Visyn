@@ -68,7 +68,9 @@ public:
     VectorXd const& keys() const;
     VectorXd const& realValues() const;
     VectorXcd const& complexValues() const;
+    VectorXd phases() const;
 
+    int index(double key) const;
     double key(int iSample) const;
     int numKeys() const;
     int numValues() const;

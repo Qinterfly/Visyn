@@ -8,12 +8,14 @@ using namespace Backend::Core;
 
 static double const skEps = std::numeric_limits<double>::epsilon();
 
-EdgeDetector::EdgeDetector(Response const& response)
+EdgeDetector::EdgeDetector(VectorXd const& data)
     : order(1)
     , width(3)
     , thresholds(4)
     , scales(4)
-    , mResponse(response)
+    , isMax(true)
+    , isMin(false)
+    , mData(data)
 {
     thresholds << 0.1, 0.2, 0.3, 0.4;
     scales << 1, 2, 4, 8;
@@ -43,7 +45,7 @@ VectorXi EdgeDetector::detect()
 //! Computes the Gaussian scale space
 std::vector<VectorXd> EdgeDetector::createGaussScaleSpace() const
 {
-    VectorXd const& data = mResponse.realValues();
+    VectorXd const& data = mData;
     int numData = data.size();
     int numScales = scales.size();
 
@@ -180,7 +182,7 @@ std::vector<bool> EdgeDetector::findLocalExtrema(VectorXd const& data, double th
     // Set the result
     std::vector<bool> extrema(numData);
     for (int i = 0; i != numData; ++i)
-        extrema[i] = maxima[i] || minima[i];
+        extrema[i] = (isMax && maxima[i]) || (isMin && minima[i]);
 
     return extrema;
 }

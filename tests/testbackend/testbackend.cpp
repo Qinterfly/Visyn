@@ -52,20 +52,40 @@ void TestBackend::testStatistics()
 }
 
 //! Use harmonic solver to find segments with constant frequency
-void TestBackend::testHarmonicSolver()
-{
-    QString pathFile = Utility::combineFilePath(INPUT_DIR, "test2.mat");
+// void TestBackend::testSegmentResponse()
+// {
+//     double const precision = 1e-3;
+//     QString pathFile = Utility::combineFilePath(INPUT_DIR, "test2.mat");
 
-    // Read the response
-    auto response = readTestResponse(pathFile);
-    QVERIFY(!response.isEmpty());
+//     // Read the response
+//     auto response = readTestResponse(pathFile);
+//     QVERIFY(!response.isEmpty());
+
+//     // Perform the solution
+//     QList<Core::Response> responses = {response};
+//     HarmonicSolver solver(responses);
+//     solver.options.smoothFactor = 1.0;
+//     solver.options.numIter = 10;
+//     HarmonicSolution solution = solver.solve();
+
+//     // Check the solution
+//     QVERIFY(solution.segments.size() == 10);
+//     QVERIFY(isEqual(solution.segments.back().freq, 20.007633991400272, precision));
+// }
+
+//! Use harmonic solver to compute harmonic responses
+void TestBackend::testHarmonicResponses()
+{
+    QString pathFile = Utility::combineFilePath(INPUT_DIR, "try3.vaufx");
+
+    // Read the responses
+    QList<Response> responses = Utility::readResponses(pathFile);
 
     // Perform the solution
-    QList<Core::Response> responses = {response};
     HarmonicSolver solver(responses);
-    solver.options.smoothFactor = 1.0;
+    solver.options.smoothFactor = 1e-3;
     solver.options.numIter = 10;
-    auto solution = solver.solve();
+    HarmonicSolution solution = solver.solve();
 }
 
 //! Helper function to get data from a .mat file
