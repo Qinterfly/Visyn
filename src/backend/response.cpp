@@ -11,6 +11,8 @@ using namespace Backend::Core;
 QString getMatStringData(matvar_t* matVar);
 MatrixXd getMatDoubleData(matvar_t* matVar);
 MatrixXcd getMatComplexData(matvar_t* matVar);
+matvar_t* createVariable(double value);
+matvar_t* createVariable(QString const& value);
 matvar_t* createVariable(VectorXd const& data);
 matvar_t* createVariable(VectorXcd const& data);
 
@@ -19,7 +21,6 @@ ResponseProperties::ResponseProperties()
     , direction(Direction::kNone)
     , domain(Domain::kNone)
     , dimension(Dimension::kNone)
-    , factor(1.0)
     , sampleRate(0.0)
     , numAverages(0)
 {
@@ -131,6 +132,11 @@ int Response::numValues() const
 bool Response::isEmpty() const
 {
     return numValues() == 0;
+}
+
+bool Response::isComplex() const
+{
+    return mType == ValueType::kComplex;
 }
 
 void Response::setKeys(VectorXd const& keys)
@@ -287,13 +293,13 @@ QList<Response> ResponseFile::read(mat_t* mat)
 bool ResponseFile::write(mat_t* mat, QList<Response> const& responses)
 {
     // Constants
-    const char* kFieldNames[] = {"keys", "values"};
-    int const kNumFields = 2;
+    const char* kFieldNames[] = {"keys", "values", "name", "sampleRate"};
+    int const kNumFields = 4;
 
     // Create the array of structures
     size_t numResponses = responses.size();
     size_t dims[2] = {numResponses, 1};
-    matvar_t* matStruct = Mat_VarCreateStruct("response", 2, dims, kFieldNames, kNumFields);
+    matvar_t* matResponses = Mat_VarCreateStruct("responses", 2, dims, kFieldNames, kNumFields);
 
     // Add all the responses
     for (size_t iResponse = 0; iResponse != numResponses; ++iResponse)
@@ -302,17 +308,22 @@ bool ResponseFile::write(mat_t* mat, QList<Response> const& responses)
 
         // Create keys field
         matvar_t* matKeys = createVariable(response.keys());
-        Mat_VarSetStructFieldByName(matStruct, kFieldNames[0], iResponse, matKeys);
+        Mat_VarSetStructFieldByName(matResponses, kFieldNames[0], iResponse, matKeys);
 
         // Create values field
-        // TODO
+        matvar_t* matValues = response.isComplex() ? createVariable(response.complexValues()) : createVariable(response.realValues());
+        Mat_VarSetStructFieldByName(matResponses, kFieldNames[1], iResponse, matValues);
+
+        // Create properties
+        Mat_VarSetStructFieldByName(matResponses, kFieldNames[2], iResponse, createVariable(response.props.name));
+        Mat_VarSetStructFieldByName(matResponses, kFieldNames[3], iResponse, createVariable(response.props.sampleRate));
     }
 
     // Write struct array to file
-    Mat_VarWrite(mat, matStruct, MAT_COMPRESSION_ZLIB);
+    Mat_VarWrite(mat, matResponses, MAT_COMPRESSION_ZLIB);
 
     // Clean up
-    Mat_VarFree(matStruct);
+    Mat_VarFree(matResponses);
 
     return true;
 }
@@ -421,20 +432,46 @@ MatrixXcd getMatComplexData(matvar_t* matVar)
     return result;
 }
 
-//! Helper function to create mat variable related to a double array
+//! Helper function to create a variable related to a double value
+matvar_t* createVariable(double value)
+{
+    size_t const rank = 1;
+    size_t dims[rank] = {1};
+    return Mat_VarCreate(NULL, MAT_C_DOUBLE, MAT_T_DOUBLE, 1, dims, &value, 0);
+}
+
+//! Helper function to create a variable related to a string value
+matvar_t* createVariable(QString const& value)
+{
+    size_t const rank = 1;
+    QByteArray array = value.toUtf8();
+    std::string text(array.data(), array.length());
+    size_t dims[rank] = {(size_t) text.length()};
+    return Mat_VarCreate(NULL, MAT_C_CHAR, MAT_T_UTF8, rank, dims, text.data(), 0);
+}
+
+//! Helper function to create a variable related to a double array
 matvar_t* createVariable(VectorXd const& data)
 {
     size_t const rank = 2;
     size_t dims[rank] = {(size_t) data.rows(), (size_t) data.cols()};
-    matvar_t* matVar = Mat_VarCreate(NULL, MAT_C_DOUBLE, MAT_T_DOUBLE, rank, dims, data.data(), 0);
-    return matVar;
+    return Mat_VarCreate(NULL, MAT_C_DOUBLE, MAT_T_DOUBLE, rank, dims, data.data(), 0);
 }
 
-//! Helper function to create mat variable related to a complex array
+//! Helper function to create a variable related to a complex array
 matvar_t* createVariable(VectorXcd const& data)
 {
     size_t const rank = 2;
     size_t dims[rank] = {(size_t) data.rows(), (size_t) data.cols()};
-    matvar_t* matVar = Mat_VarCreate(NULL, MAT_C_DOUBLE, MAT_T_DOUBLE, rank, dims, data.data(), 0);
-    return matVar;
+    size_t N = data.size();
+    double* real = (double*) malloc(N * sizeof(double));
+    double* imag = (double*) malloc(N * sizeof(double));
+    for (size_t i = 0; i != N; ++i)
+    {
+        std::complex<double> const& value = data[i];
+        real[i] = value.real();
+        imag[i] = value.imag();
+    }
+    mat_complex_split_t complexData = {real, imag};
+    return Mat_VarCreate(NULL, MAT_C_DOUBLE, MAT_T_DOUBLE, rank, dims, &complexData, MAT_F_COMPLEX);
 }

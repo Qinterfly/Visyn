@@ -49,6 +49,7 @@ enum class ValueType
     kComplex
 };
 
+//! Class to handle response properties
 struct ResponseProperties
 {
     ResponseProperties();
@@ -58,15 +59,15 @@ struct ResponseProperties
     Direction direction;
     Domain domain;
     Dimension dimension;
-    double factor;
     double sampleRate;
     int numAverages;
+    QString name;
     QString node;
     QString component;
-    QString name;
     QString info;
 };
 
+//! Class to present signal data
 class Response
 {
 public:
@@ -88,6 +89,7 @@ public:
     int numKeys() const;
     int numValues() const;
     bool isEmpty() const;
+    bool isComplex() const;
 
     void setKeys(VectorXd const& keys);
     void setValues(std::vector<float> const& values);
@@ -104,6 +106,7 @@ private:
     VectorXcd mComplexValues;
 };
 
+//! Class to handle serializing and deserializing responses
 class ResponseFile
 {
 public:

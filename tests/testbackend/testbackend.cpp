@@ -87,14 +87,14 @@ void TestBackend::testHarmonicResponses()
 {
     QString record = "try3";
     QString pathFileResponses = Utility::combineFilePath(INPUT_DIR, record + ".vaufx");
-    QString pathFileSpectrums = Utility::combineFilePath(INPUT_DIR, record + ".mat");
+    QString pathFileRefSpectrums = Utility::combineFilePath(INPUT_DIR, record + ".mat");
 
     // Read the responses
     auto responseFile = ResponseFile(pathFileResponses);
     QList<Response> responses = responseFile.read();
 
     // Read the reference spectrum
-    auto spectrumFile = ResponseFile(pathFileSpectrums);
+    auto spectrumFile = ResponseFile(pathFileRefSpectrums);
     QList<Response> refSpectrums = spectrumFile.read();
 
     // Perform the solution
