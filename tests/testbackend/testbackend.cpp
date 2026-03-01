@@ -21,14 +21,16 @@ TestBackend::TestBackend()
 void TestBackend::testReadVaufx()
 {
     QString pathFile = Utility::combineFilePath(INPUT_DIR, "sine1.vaufx");
-    QList<Response> responses = Utility::readResponses(pathFile);
+    auto file = ResponseFile(pathFile);
+    QList<Response> responses = file.read();
     QVERIFY(responses.size() == 1);
 }
 
 void TestBackend::testReadMat()
 {
     QString pathFile = Utility::combineFilePath(INPUT_DIR, "spectrums.mat");
-    QList<Response> responses = Utility::readResponses(pathFile);
+    auto file = ResponseFile(pathFile);
+    QList<Response> responses = file.read();
     QVERIFY(responses.size() == 4);
 }
 
@@ -88,10 +90,12 @@ void TestBackend::testHarmonicResponses()
     QString pathFileSpectrums = Utility::combineFilePath(INPUT_DIR, record + ".mat");
 
     // Read the responses
-    QList<Response> responses = Utility::readResponses(pathFileResponses);
+    auto responseFile = ResponseFile(pathFileResponses);
+    QList<Response> responses = responseFile.read();
 
     // Read the reference spectrum
-    QList<Response> refSpectrums = Utility::readResponses(pathFileSpectrums);
+    auto spectrumFile = ResponseFile(pathFileSpectrums);
+    QList<Response> refSpectrums = spectrumFile.read();
 
     // Perform the solution
     HarmonicSolver solver(responses);
@@ -102,6 +106,11 @@ void TestBackend::testHarmonicResponses()
     HarmonicSolution solution = solver.solve();
     QVERIFY(solution.segments.size() == 83);
     QVERIFY(solution.spectrums.size() == 4);
+
+    // Write the result
+    QString pathFileOutput = Utility::combineFilePath(OUTPUT_DIR, record + "-spectrums" + ".mat");
+    auto outputFile = ResponseFile(pathFileOutput);
+    QVERIFY(outputFile.write(solution.spectrums));
 }
 
 //! Helper function to get data from a .mat file

@@ -1,12 +1,25 @@
+#include <matio.h>
+#include <thread>
+#include <visom/vaufxfile.h>
+#include <QFileInfo>
+
 #include "response.h"
 
 using namespace Backend::Core;
+
+// Helper function
+QString getMatStringData(matvar_t* matVar);
+MatrixXd getMatDoubleData(matvar_t* matVar);
+MatrixXcd getMatComplexData(matvar_t* matVar);
+matvar_t* createVariable(VectorXd const& data);
+matvar_t* createVariable(VectorXcd const& data);
 
 ResponseProperties::ResponseProperties()
     : id(0)
     , direction(Direction::kNone)
     , domain(Domain::kNone)
     , dimension(Dimension::kNone)
+    , factor(1.0)
     , sampleRate(0.0)
     , numAverages(0)
 {
@@ -146,4 +159,282 @@ void Response::setValues(VectorXcd const& values)
     mType = ValueType::kComplex;
     mRealValues = VectorXd();
     mComplexValues = values;
+}
+
+ResponseFile::ResponseFile(QString const& pathFile)
+    : mPathFile(pathFile)
+{
+}
+
+//! Read all the responses from the specified file
+QList<Response> ResponseFile::read()
+{
+    QList<Response> responses;
+
+    // Check if the file exists
+    QFileInfo info(mPathFile);
+    if (!info.exists())
+    {
+        qWarning() << QObject::tr("The file %1 does not exist").arg(mPathFile);
+        return responses;
+    }
+
+    // Read the responses
+    QString suffix = info.suffix();
+    if (suffix == "vaufx")
+    {
+        Visom::VaufxFile file(mPathFile.toStdWString());
+        responses = read(file);
+    }
+    else if (suffix == "mat")
+    {
+        mat_t* mat = Mat_Open(mPathFile.toStdString().c_str(), MAT_ACC_RDONLY);
+        if (mat)
+        {
+            responses = read(mat);
+            Mat_Close(mat);
+        }
+    }
+    else
+    {
+        qWarning() << QObject::tr("The file %1 has unknown suffix. Could not read responses").arg(mPathFile);
+    }
+
+    return responses;
+}
+
+//! Write all responses to the specified file
+bool ResponseFile::write(QList<Response> const& responses)
+{
+    bool isSuccess = false;
+    QFileInfo info(mPathFile);
+    QString suffix = info.suffix();
+    if (suffix == "mat")
+    {
+        mat_t* mat = Mat_CreateVer(mPathFile.toStdString().c_str(), NULL, MAT_FT_DEFAULT);
+        if (mat)
+        {
+            isSuccess = write(mat, responses);
+            Mat_Close(mat);
+        }
+    }
+    else
+    {
+        qWarning() << QObject::tr("The file %1 has unknown suffix. Could not write responses").arg(mPathFile);
+    }
+    return isSuccess;
+}
+
+//! Read responses from a .vaufx formatted file
+QList<Response> ResponseFile::read(Visom::VaufxFile& file)
+{
+    // Read the header
+    auto header = file.readHeader();
+
+    // Read the subheaders and assign them
+    auto subheaders = file.readSubheaders(header);
+    int count = header.chanCount;
+    QList<Response> responses(count);
+    for (int i = 0; i != count; ++i)
+    {
+        auto& props = responses[i].props;
+        auto const& subheader = subheaders[i];
+        props.id = 1 + i;
+        props.domain = Domain::kTime;
+        props.dimension = (Dimension) subheader.dimension;
+        props.sampleRate = header.sampleRate;
+        props.name = QString::fromStdWString(subheader.name);
+    }
+
+    // Helper function for reading data
+    auto readData = [&file, &header, &subheaders, &responses](int i)
+    {
+        auto data = file.readData(header, i);
+        responses[i].setValues(data);
+    };
+
+    // Start the threads
+    std::vector<std::thread> threads;
+    for (int i = 0; i != count; ++i)
+        threads.emplace_back(readData, i);
+
+    // Wait till the threads finish
+    for (auto& t : threads)
+        t.join();
+
+    return responses;
+}
+
+//! Read responses from a .mat file
+QList<Response> ResponseFile::read(mat_t* mat)
+{
+    QList<Response> result;
+    matvar_t* matVar = Mat_VarReadNext(mat);
+    if (!matVar)
+        return result;
+
+    // Read TestLab spectrums
+    if (matVar->class_type == MAT_C_STRUCT && QString(matVar->name) == "FrequencySpectrum")
+        result = readTestLab(matVar);
+
+    // Clean up
+    Mat_VarFree(matVar);
+
+    return result;
+}
+
+//! Write responses to a .mat file
+bool ResponseFile::write(mat_t* mat, QList<Response> const& responses)
+{
+    // Constants
+    const char* kFieldNames[] = {"keys", "values"};
+    int const kNumFields = 2;
+
+    // Create the array of structures
+    size_t numResponses = responses.size();
+    size_t dims[2] = {numResponses, 1};
+    matvar_t* matStruct = Mat_VarCreateStruct("response", 2, dims, kFieldNames, kNumFields);
+
+    // Add all the responses
+    for (size_t iResponse = 0; iResponse != numResponses; ++iResponse)
+    {
+        Response const& response = responses[iResponse];
+
+        // Create keys field
+        matvar_t* matKeys = createVariable(response.keys());
+        Mat_VarSetStructFieldByName(matStruct, kFieldNames[0], iResponse, matKeys);
+
+        // Create values field
+        // TODO
+    }
+
+    // Write struct array to file
+    Mat_VarWrite(mat, matStruct, MAT_COMPRESSION_ZLIB);
+
+    // Clean up
+    Mat_VarFree(matStruct);
+
+    return true;
+}
+
+//! Read responses from a TestLab formatted .mat file
+QList<Response> ResponseFile::readTestLab(matvar_t* matVar)
+{
+    // Read xValues
+    matvar_t* matX = Mat_VarGetStructFieldByName(matVar, "x_values", 0);
+    matvar_t* matXValues = Mat_VarGetStructFieldByName(matX, "values", 0);
+    MatrixXd xValues = getMatDoubleData(matXValues);
+    int numResponses = xValues.cols();
+
+    // Read yValues
+    matvar_t* matY = Mat_VarGetStructFieldByName(matVar, "y_values", 0);
+    matvar_t* matYValues = Mat_VarGetStructFieldByName(matY, "values", 0);
+    MatrixXcd yValues = getMatComplexData(matYValues);
+
+    // Read info
+    matvar_t* matRecord = Mat_VarGetStructFieldByName(matVar, "function_record", 0);
+    matvar_t* matName = Mat_VarGetStructFieldByName(matRecord, "name", 0);
+    QList<QString> names(numResponses);
+    if (matName->class_type == MAT_C_CELL)
+    {
+        matvar_t** cellsName = (matvar_t**) matName->data;
+        for (int i = 0; i != numResponses; ++i)
+            names[i] = getMatStringData(cellsName[i]);
+    }
+    else if (matName->class_type == MAT_C_CHAR)
+    {
+        names = {getMatStringData(matName)};
+    }
+
+    // Build up responses
+    QList<Response> result(numResponses);
+    for (int i = 0; i != numResponses; ++i)
+    {
+        Response& response = result[i];
+        VectorXd keys = xValues(indexing::all, i);
+        VectorXcd values = yValues(indexing::all, i);
+        response.setKeys(keys);
+        response.setValues(values);
+        response.props.name = names[i];
+        response.props.domain = Domain::kFreq;
+    }
+
+    return result;
+}
+
+//! Helper function to get a string array from a mat variable
+QString getMatStringData(matvar_t* matVar)
+{
+    size_t length = matVar->nbytes / matVar->data_size;
+    auto data = (char*) matVar->data;
+    std::string text(data, length);
+    return QString::fromStdString(text);
+}
+
+//! Helper function to get a double array from a mat variable
+MatrixXd getMatDoubleData(matvar_t* matVar)
+{
+    // Get dimensions
+    size_t numRows = matVar->dims[0];
+    size_t numCols = 1;
+    if (matVar->rank == 2)
+        numCols = matVar->dims[1];
+
+    // Copy the data
+    auto data = static_cast<const double*>(matVar->data);
+    MatrixXd result(numRows, numCols);
+    size_t k = 0;
+    for (size_t j = 0; j != numCols; ++j)
+    {
+        for (size_t i = 0; i != numRows; ++i)
+        {
+            result(i, j) = data[k];
+            ++k;
+        }
+    }
+    return result;
+}
+
+//! Helper function to get a complex array from a mat variable
+MatrixXcd getMatComplexData(matvar_t* matVar)
+{
+    // Get dimensions
+    size_t numRows = matVar->dims[0];
+    size_t numCols = 1;
+    if (matVar->rank == 2)
+        numCols = matVar->dims[1];
+
+    // Copy the data
+    auto complexData = (const mat_complex_split_t*) matVar->data;
+    auto realData = (const double*) complexData->Re;
+    auto imagData = (const double*) complexData->Im;
+    MatrixXcd result(numRows, numCols);
+    size_t k = 0;
+    for (size_t j = 0; j != numCols; ++j)
+    {
+        for (size_t i = 0; i != numRows; ++i)
+        {
+            result(i, j) = std::complex<double>(realData[k], imagData[k]);
+            ++k;
+        }
+    };
+    return result;
+}
+
+//! Helper function to create mat variable related to a double array
+matvar_t* createVariable(VectorXd const& data)
+{
+    size_t const rank = 2;
+    size_t dims[rank] = {(size_t) data.rows(), (size_t) data.cols()};
+    matvar_t* matVar = Mat_VarCreate(NULL, MAT_C_DOUBLE, MAT_T_DOUBLE, rank, dims, data.data(), 0);
+    return matVar;
+}
+
+//! Helper function to create mat variable related to a complex array
+matvar_t* createVariable(VectorXcd const& data)
+{
+    size_t const rank = 2;
+    size_t dims[rank] = {(size_t) data.rows(), (size_t) data.cols()};
+    matvar_t* matVar = Mat_VarCreate(NULL, MAT_C_DOUBLE, MAT_T_DOUBLE, rank, dims, data.data(), 0);
+    return matVar;
 }

@@ -31,6 +31,11 @@ struct HarmonicOptions
 
 struct HarmonicSolution
 {
+    HarmonicSolution();
+    ~HarmonicSolution() = default;
+
+    bool isEmpty() const;
+
     Response freqs;
     Response filterFreqs;
     QList<Segment> segments;

@@ -1,4 +1,3 @@
-
 #ifndef CONFIG_H_IN
 #define CONFIG_H_IN
 
@@ -17,5 +16,6 @@
 
 // Directories
 #define INPUT_DIR "@INPUT_DIR@"
+#define OUTPUT_DIR "@OUTPUT_DIR@"
 
 #endif // CONFIG_H_IN

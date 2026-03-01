@@ -18,6 +18,15 @@ HarmonicOptions::HarmonicOptions()
 {
 }
 
+HarmonicSolution::HarmonicSolution()
+{
+}
+
+bool HarmonicSolution::isEmpty() const
+{
+    return segments.size() > 0;
+}
+
 HarmonicSolver::HarmonicSolver(QList<Response> const& responses)
     : mResponses(responses)
 {

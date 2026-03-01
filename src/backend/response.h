@@ -2,9 +2,19 @@
 #define RESPONSE_H
 
 #include <Eigen/Core>
+#include <QList>
 #include <QString>
 
 using namespace Eigen;
+
+namespace Visom
+{
+class VaufxFile;
+}
+
+struct _mat_t;
+typedef struct _mat_t mat_t;
+struct matvar_t;
 
 namespace Backend::Core
 {
@@ -48,11 +58,12 @@ struct ResponseProperties
     Direction direction;
     Domain domain;
     Dimension dimension;
+    double factor;
     double sampleRate;
     int numAverages;
     QString node;
     QString component;
-    QString title;
+    QString name;
     QString info;
 };
 
@@ -93,6 +104,24 @@ private:
     VectorXcd mComplexValues;
 };
 
+class ResponseFile
+{
+public:
+    ResponseFile(QString const& pathFile);
+    ~ResponseFile() = default;
+
+    QList<Response> read();
+    bool write(QList<Response> const& responses);
+
+private:
+    QList<Response> read(Visom::VaufxFile& file);
+    QList<Response> read(mat_t* mat);
+    QList<Response> readTestLab(matvar_t* matVar);
+    bool write(mat_t* mat, QList<Response> const& responses);
+
+private:
+    QString mPathFile;
+};
 }
 
 #endif // RESPONSE_H
