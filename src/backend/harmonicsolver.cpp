@@ -10,7 +10,8 @@ using namespace Backend::Core;
 static double const skEps = std::numeric_limits<double>::epsilon();
 
 HarmonicOptions::HarmonicOptions()
-    : iSync(-1)
+    : iSyncResponse(-1)
+    , iSyncSpectrum(-1)
     , numIter(10)
     , smoothFactor(1e-3)
     , numSkipPeriods(1)
@@ -24,7 +25,15 @@ HarmonicSolution::HarmonicSolution()
 
 bool HarmonicSolution::isEmpty() const
 {
-    return segments.size() > 0;
+    return segments.size() == 0;
+}
+
+void HarmonicSolution::clear()
+{
+    freqs = Response();
+    filterFreqs = Response();
+    segments.clear();
+    spectrums.clear();
 }
 
 HarmonicSolver::HarmonicSolver(QList<Response> const& responses)
@@ -43,11 +52,21 @@ HarmonicSolution HarmonicSolver::solve()
         return solution;
     }
 
-    // Fix up synchronization channel index
+    // Fix up synchronization channel index in time domain
     int numResponses = mResponses.size();
-    if (options.iSync < 0 || options.iSync >= numResponses)
-        options.iSync = numResponses - 1;
-    Response const& syncResponse = mResponses[options.iSync];
+    if (options.iSyncResponse < 0 || options.iSyncResponse >= numResponses)
+        options.iSyncResponse = numResponses - 1;
+    Response const& syncResponse = mResponses[options.iSyncResponse];
+
+    // Fix up synchronization channel index in frequency domain
+    Response syncSpectrum;
+    int numSpectrums = refSpectrums.size();
+    if (numSpectrums > 0)
+    {
+        if (options.iSyncSpectrum < 0 || options.iSyncSpectrum >= numSpectrums)
+            options.iSyncSpectrum = numSpectrums - 1;
+        syncSpectrum = refSpectrums[options.iSyncSpectrum];
+    }
 
     // Evaluate frequencies
     auto [xFreqs, yFreqs] = Utility::evaluateFreqs(syncResponse);
@@ -66,7 +85,7 @@ HarmonicSolution HarmonicSolver::solve()
     QList<Segment> segments = createSegments(edges, xFreqs, yFilterFreqs, syncResponse);
 
     // Compute spectrums
-    QList<Response> spectrums = computeSpectrums(syncResponse, segments);
+    QList<Response> spectrums = computeSpectrums(syncResponse, syncSpectrum, segments);
 
     // Set the solution
     solution.freqs = Response(xFreqs, yFreqs);
@@ -105,7 +124,7 @@ QList<Segment> HarmonicSolver::createSegments(VectorXi const& edges, VectorXd co
 }
 
 //! Compute spectrums for time signals per each segment
-QList<Response> HarmonicSolver::computeSpectrums(Response const& syncResponse, QList<Segment> const& segments) const
+QList<Response> HarmonicSolver::computeSpectrums(Response const& syncResponse, Response const& syncSpectrum, QList<Segment> const& segments) const
 {
     // Constants
     double const kTolerance = 1e-6;
@@ -138,10 +157,10 @@ QList<Response> HarmonicSolver::computeSpectrums(Response const& syncResponse, Q
 
         // Acquire the phase shift
         double shiftPhase = 0.0;
-        if (!refSpectrum.isEmpty())
+        if (!syncSpectrum.isEmpty())
         {
-            int iFreq = refSpectrum.index(freq);
-            shiftPhase = refSpectrum.phases()[iFreq];
+            int iFreq = syncSpectrum.index(freq);
+            shiftPhase = syncSpectrum.phases()[iFreq];
         }
 
         // Process all the averages

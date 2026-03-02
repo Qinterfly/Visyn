@@ -167,21 +167,20 @@ void Response::setValues(VectorXcd const& values)
     mComplexValues = values;
 }
 
-ResponseFile::ResponseFile(QString const& pathFile)
-    : mPathFile(pathFile)
+ResponseIO::ResponseIO()
 {
 }
 
 //! Read all the responses from the specified file
-QList<Response> ResponseFile::read()
+QList<Response> ResponseIO::read(QString const& pathFile)
 {
     QList<Response> responses;
 
     // Check if the file exists
-    QFileInfo info(mPathFile);
+    QFileInfo info(pathFile);
     if (!info.exists())
     {
-        qWarning() << QObject::tr("The file %1 does not exist").arg(mPathFile);
+        qWarning() << QObject::tr("The file %1 does not exist").arg(pathFile);
         return responses;
     }
 
@@ -189,12 +188,12 @@ QList<Response> ResponseFile::read()
     QString suffix = info.suffix();
     if (suffix == "vaufx")
     {
-        Visom::VaufxFile file(mPathFile.toStdWString());
+        Visom::VaufxFile file(pathFile.toStdWString());
         responses = read(file);
     }
     else if (suffix == "mat")
     {
-        mat_t* mat = Mat_Open(mPathFile.toStdString().c_str(), MAT_ACC_RDONLY);
+        mat_t* mat = Mat_Open(pathFile.toStdString().c_str(), MAT_ACC_RDONLY);
         if (mat)
         {
             responses = read(mat);
@@ -203,36 +202,36 @@ QList<Response> ResponseFile::read()
     }
     else
     {
-        qWarning() << QObject::tr("The file %1 has unknown suffix. Could not read responses").arg(mPathFile);
+        qWarning() << QObject::tr("The file %1 has unknown suffix. Could not read responses").arg(pathFile);
     }
 
     return responses;
 }
 
 //! Write all responses to the specified file
-bool ResponseFile::write(QList<Response> const& responses)
+bool ResponseIO::write(QString const& pathFile, QList<Response> const& responses)
 {
     bool isSuccess = false;
-    QFileInfo info(mPathFile);
+    QFileInfo info(pathFile);
     QString suffix = info.suffix();
     if (suffix == "mat")
     {
-        mat_t* mat = Mat_CreateVer(mPathFile.toStdString().c_str(), NULL, MAT_FT_DEFAULT);
+        mat_t* mat = Mat_CreateVer(pathFile.toStdString().c_str(), NULL, MAT_FT_DEFAULT);
         if (mat)
         {
-            isSuccess = write(mat, responses);
+            isSuccess = write(mat, responses, "responses");
             Mat_Close(mat);
         }
     }
     else
     {
-        qWarning() << QObject::tr("The file %1 has unknown suffix. Could not write responses").arg(mPathFile);
+        qWarning() << QObject::tr("The file %1 has unknown suffix. Could not write responses").arg(pathFile);
     }
     return isSuccess;
 }
 
 //! Read responses from a .vaufx formatted file
-QList<Response> ResponseFile::read(Visom::VaufxFile& file)
+QList<Response> ResponseIO::read(Visom::VaufxFile& file)
 {
     // Read the header
     auto header = file.readHeader();
@@ -272,7 +271,7 @@ QList<Response> ResponseFile::read(Visom::VaufxFile& file)
 }
 
 //! Read responses from a .mat file
-QList<Response> ResponseFile::read(mat_t* mat)
+QList<Response> ResponseIO::read(mat_t* mat)
 {
     QList<Response> result;
     matvar_t* matVar = Mat_VarReadNext(mat);
@@ -290,7 +289,7 @@ QList<Response> ResponseFile::read(mat_t* mat)
 }
 
 //! Write responses to a .mat file
-bool ResponseFile::write(mat_t* mat, QList<Response> const& responses)
+bool ResponseIO::write(mat_t* mat, QList<Response> const& responses, QString const& name)
 {
     // Constants
     const char* kFieldNames[] = {"keys", "values", "name", "sampleRate"};
@@ -299,7 +298,7 @@ bool ResponseFile::write(mat_t* mat, QList<Response> const& responses)
     // Create the array of structures
     size_t numResponses = responses.size();
     size_t dims[2] = {numResponses, 1};
-    matvar_t* matResponses = Mat_VarCreateStruct("responses", 2, dims, kFieldNames, kNumFields);
+    matvar_t* matResponses = Mat_VarCreateStruct(name.toStdString().c_str(), 2, dims, kFieldNames, kNumFields);
 
     // Add all the responses
     for (size_t iResponse = 0; iResponse != numResponses; ++iResponse)
@@ -329,7 +328,7 @@ bool ResponseFile::write(mat_t* mat, QList<Response> const& responses)
 }
 
 //! Read responses from a TestLab formatted .mat file
-QList<Response> ResponseFile::readTestLab(matvar_t* matVar)
+QList<Response> ResponseIO::readTestLab(matvar_t* matVar)
 {
     // Read xValues
     matvar_t* matX = Mat_VarGetStructFieldByName(matVar, "x_values", 0);

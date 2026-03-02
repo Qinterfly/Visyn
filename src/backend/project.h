@@ -1,18 +1,27 @@
 #ifndef PROJECT_H
 #define PROJECT_H
 
-#include <QList>
+#include "harmonicsolver.h"
 
 namespace Backend::Core
 {
 
 class Response;
 
-class Project
+struct Project
 {
-public:
     Project();
+    Project(QString const& uName);
     ~Project() = default;
+
+    void clear();
+    bool write(QString const& pathFile);
+
+    QString name;
+    QList<Response> responses;
+    QList<Response> spectrums;
+    HarmonicOptions options;
+    HarmonicSolution solution;
 };
 
 }

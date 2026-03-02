@@ -22,7 +22,8 @@ struct HarmonicOptions
     HarmonicOptions();
     ~HarmonicOptions() = default;
 
-    int iSync;
+    int iSyncResponse;
+    int iSyncSpectrum;
     int numIter;
     double smoothFactor;
     int numSkipPeriods;
@@ -35,6 +36,7 @@ struct HarmonicSolution
     ~HarmonicSolution() = default;
 
     bool isEmpty() const;
+    void clear();
 
     Response freqs;
     Response filterFreqs;
@@ -53,11 +55,11 @@ public:
 
 public:
     HarmonicOptions options;
-    Response refSpectrum;
+    QList<Response> refSpectrums;
 
 private:
     QList<Segment> createSegments(VectorXi const& edges, VectorXd const& xFreqs, VectorXd const& yFreqs, Response const& response) const;
-    QList<Response> computeSpectrums(Response const& syncResponse, QList<Segment> const& segments) const;
+    QList<Response> computeSpectrums(Response const& syncResponse, Response const& syncSpectrum, QList<Segment> const& segments) const;
 
 private:
     QList<Response> const& mResponses;

@@ -107,23 +107,21 @@ private:
 };
 
 //! Class to handle serializing and deserializing responses
-class ResponseFile
+class ResponseIO
 {
 public:
-    ResponseFile(QString const& pathFile);
-    ~ResponseFile() = default;
+    ResponseIO();
+    ~ResponseIO() = default;
 
-    QList<Response> read();
-    bool write(QList<Response> const& responses);
+    static QList<Response> read(QString const& pathFile);
+    static QList<Response> read(Visom::VaufxFile& file);
+    static QList<Response> read(mat_t* mat);
 
-private:
-    QList<Response> read(Visom::VaufxFile& file);
-    QList<Response> read(mat_t* mat);
-    QList<Response> readTestLab(matvar_t* matVar);
-    bool write(mat_t* mat, QList<Response> const& responses);
+    static bool write(QString const& pathFile, QList<Response> const& responses);
+    static bool write(mat_t* mat, QList<Response> const& responses, QString const& name);
 
 private:
-    QString mPathFile;
+    static QList<Response> readTestLab(matvar_t* matVar);
 };
 }
 

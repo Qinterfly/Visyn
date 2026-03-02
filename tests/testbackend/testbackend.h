@@ -4,6 +4,7 @@
 
 #include <QTest>
 
+#include "project.h"
 #include "response.h"
 
 namespace Tests
@@ -18,7 +19,7 @@ public:
     virtual ~TestBackend() = default;
 
 private slots:
-    // File
+    // Read
     void testReadVaufx();
     void testReadMat();
 
@@ -27,9 +28,15 @@ private slots:
     void testSegmentResponse();
     void testHarmonicResponses();
 
+    // Project
+    void testWriteProject();
+
 private:
     bool isEqual(double firstValue, double secondValue, double precision);
     Backend::Core::Response readTestResponse(QString const& pathFile);
+
+private:
+    Backend::Core::Project mProject;
 };
 }
 
