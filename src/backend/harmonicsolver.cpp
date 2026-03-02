@@ -12,10 +12,10 @@ static double const skEps = std::numeric_limits<double>::epsilon();
 HarmonicOptions::HarmonicOptions()
     : iSyncResponse(-1)
     , iSyncSpectrum(-1)
-    , numIter(10)
     , smoothFactor(1e-3)
-    , numSkipPeriods(1)
+    , numIter(10)
     , numAverages(3)
+    , numSkipPeriods(1)
 {
 }
 

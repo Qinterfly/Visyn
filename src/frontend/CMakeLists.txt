@@ -13,6 +13,9 @@ set(FRONTEND_HEADERS
     customstatusbar.h
     customtabwidget.h
     customplot.h
+    customlineedit.h
+    viewmanager.h
+    projecteditor.h
 )
 
 set(FRONTEND_SOURCES
@@ -22,6 +25,9 @@ set(FRONTEND_SOURCES
     customstatusbar.cpp
     customtabwidget.cpp
     customplot.cpp
+    customlineedit.cpp
+    viewmanager.cpp
+    projecteditor.cpp
 )
 
 qt_add_library(frontend STATIC

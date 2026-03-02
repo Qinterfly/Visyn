@@ -8,6 +8,10 @@
 #include "uialiasdata.h"
 
 QT_FORWARD_DECLARE_CLASS(QTableWidgetItem);
+QT_FORWARD_DECLARE_CLASS(QToolBar)
+QT_FORWARD_DECLARE_CLASS(QComboBox)
+QT_FORWARD_DECLARE_CLASS(QDir)
+QT_FORWARD_DECLARE_CLASS(QSettings)
 
 namespace Frontend::Utility
 {
@@ -16,7 +20,17 @@ namespace Frontend::Utility
 QFont getFont();
 QFont getMonospaceFont();
 
+// Ui
+void setShortcutHints(QToolBar* pToolBar);
+
+// File
+void modifyFileSuffix(QString& pathFile, QString const& expectedSuffix);
+QDir getLastDirectory(QSettings const& settings);
+QString getLastPathFile(QSettings const& settings);
+void setLastPathFile(QSettings& settings, QString const& pathFile);
+
 // Widgets
+void setIndexByKey(QComboBox* pComboBox, int key);
 QTableWidgetItem* createTableItem(double value, Qt::AlignmentFlag alignment = Qt::AlignCenter);
 QTableWidgetItem* createTableItem(std::vector<double> const& values, Qt::AlignmentFlag alignment = Qt::AlignCenter);
 QTableWidgetItem* createTableItem(QString const& text, Qt::AlignmentFlag alignment = Qt::AlignCenter);

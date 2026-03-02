@@ -24,10 +24,10 @@ struct HarmonicOptions
 
     int iSyncResponse;
     int iSyncSpectrum;
-    int numIter;
     double smoothFactor;
-    int numSkipPeriods;
+    int numIter;
     int numAverages;
+    int numSkipPeriods;
 };
 
 struct HarmonicSolution

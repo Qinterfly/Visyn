@@ -22,7 +22,7 @@ public:
     virtual ~TestFrontend();
 
 private slots:
-    void testSetProject();
+    void testProjectEditor();
 
 private:
     Frontend::MainWindow* mpMainWindow;

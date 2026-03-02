@@ -8,16 +8,12 @@
 
 #include "project.h"
 
-namespace ads
-{
-class CDockWidget;
-class CDockManager;
-}
-
 namespace Frontend
 {
 
 class CustomStatusBar;
+class ViewManager;
+class ProjectEditor;
 
 class MainWindow : public QMainWindow
 {
@@ -27,9 +23,16 @@ public:
     MainWindow(QWidget* pParent = nullptr, bool isRestore = true);
     virtual ~MainWindow();
 
+    // File interaction
+    void newProject();
+    void saveAsProject(QString const& pathFile);
+
     // Objects
-    Backend::Core::Project const& project() const;
-    void setProject(Backend::Core::Project const& project);
+    Backend::Core::Project& project();
+
+    // Widgets
+    ViewManager* viewManager();
+    ProjectEditor* projectEditor();
 
 public:
     static QString language;
@@ -40,8 +43,7 @@ private:
 
     // Content
     void createContent();
-    void createDockManager();
-    void createWindowActions();
+    void createFileActions();
     void createLanguageActions();
     void createHelpActions();
     void createConnections();
@@ -59,14 +61,18 @@ private:
     void restoreSettings();
 
     // Dialogs
+    void saveAsProjectDialog();
     void about();
+
+    // Slots
+    void onEdited();
 
 private:
     QSettings mSettings;
 
-    // UI
-    ads::CDockManager* mpDockManager;
-    QMenu* mpWindowMenu;
+    // Ui
+    ViewManager* mpViewManager;
+    ProjectEditor* mpProjectEditor;
 
     // Project
     Backend::Core::Project mProject;

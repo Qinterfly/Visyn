@@ -1,19 +1,21 @@
-#include <DockManager.h>
 #include <QActionGroup>
 #include <QApplication>
 #include <QDir>
+#include <QFileDialog>
 #include <QFontDatabase>
+#include <QHBoxLayout>
 #include <QMenuBar>
 #include <QMessageBox>
-#include <QToolBar>
+#include <QSplitter>
 
 #include "config.h"
 #include "customstatusbar.h"
 #include "mainwindow.h"
+#include "projecteditor.h"
 #include "uiconstants.h"
 #include "uiutility.h"
+#include "viewmanager.h"
 
-using namespace ads;
 using namespace Frontend;
 using namespace Backend;
 
@@ -38,18 +40,42 @@ MainWindow::~MainWindow()
 {
 }
 
+//! Close the current project and create a new one
+void MainWindow::newProject()
+{
+    mProject = Core::Project();
+    qInfo() << tr("New project was created");
+    setModified(false);
+    mpProjectEditor->refresh();
+}
+
+//! Save the project using the path specified
+void MainWindow::saveAsProject(QString const& pathFile)
+{
+    if (mProject.write(pathFile))
+    {
+        qInfo() << tr("The project was saved as the following file %1").arg(pathFile);
+        setModified(false);
+        Utility::setLastPathFile(mSettings, pathFile);
+    }
+}
+
 //! Obtain the current project instance
-Core::Project const& MainWindow::project() const
+Core::Project& MainWindow::project()
 {
     return mProject;
 }
 
-//! Set the current project instance
-void MainWindow::setProject(Core::Project const& project)
+//! Get the manager to view project entities
+ViewManager* MainWindow::viewManager()
 {
-    mProject = project;
-    qInfo() << tr("Project was set internally");
-    setModified(false);
+    return mpViewManager;
+}
+
+//! Get the manager to edit project
+ProjectEditor* MainWindow::projectEditor()
+{
+    return mpProjectEditor;
 }
 
 //! Set a state and geometry of the main window
@@ -65,38 +91,60 @@ void MainWindow::initializeWindow()
 void MainWindow::createContent()
 {
     // Top widgets
-    createWindowActions();
+    createFileActions();
     createLanguageActions();
     createHelpActions();
 
-    // Manager to place dockable widgets
-    createDockManager();
+    // Create the widgets
+    mpViewManager = new ViewManager;
+    mpProjectEditor = new ProjectEditor(mSettings, mProject);
+    QSplitter* pSplitter = new QSplitter(Qt::Horizontal);
+    pSplitter->addWidget(mpViewManager);
+    pSplitter->addWidget(mpProjectEditor);
+    setCentralWidget(pSplitter);
 
-    // Create the status bar
+    // // Create the status bar
     MainWindow::pStatusBar = new CustomStatusBar(this);
     setStatusBar(pStatusBar);
-}
-
-//! Create the dock manager and specify its configuration
-void MainWindow::createDockManager()
-{
-    CDockManager::setConfigFlag(CDockManager::FocusHighlighting, true);
-    CDockManager::setAutoHideConfigFlags({CDockManager::DefaultAutoHideConfig});
-    mpDockManager = new CDockManager(this);
 }
 
 //! Connect the widgets between each other
 void MainWindow::createConnections()
 {
-    // TODO
+    connect(mpProjectEditor, &ProjectEditor::edited, this, &MainWindow::onEdited);
 }
 
-//! Create the actions to customize windows
-void MainWindow::createWindowActions()
+//! Create the actions to interact with files
+void MainWindow::createFileActions()
 {
-    mpWindowMenu = new QMenu(tr("&Window"), this);
-    mpWindowMenu->setFont(font());
-    menuBar()->addMenu(mpWindowMenu);
+    // Create the actions
+    QAction* pNewAction = new QAction(tr("&New Project"), this);
+    QAction* pSaveAsAction = new QAction(tr("&Save As..."), this);
+    QAction* pExitAction = new QAction(tr("E&xit"), this);
+
+    // Set the icons
+    pNewAction->setIcon(QIcon(":/icons/document-new.svg"));
+    pSaveAsAction->setIcon(QIcon(":/icons/document-save-as.svg"));
+
+    // Set the shortcuts
+    pNewAction->setShortcut(QKeySequence::New);
+    pSaveAsAction->setShortcut(QKeySequence::SaveAs);
+    pExitAction->setShortcut(QKeySequence::Quit);
+
+    // Connect the actions
+    connect(pNewAction, &QAction::triggered, this, &MainWindow::newProject);
+    connect(pSaveAsAction, &QAction::triggered, this, &MainWindow::saveAsProjectDialog);
+    connect(pExitAction, &QAction::triggered, qApp, &QApplication::quit);
+
+    // Create the menu
+    QMenu* pMenu = new QMenu(tr("&File"), this);
+    pMenu->setFont(font());
+
+    // Fill up the menu
+    pMenu->addAction(pNewAction);
+    pMenu->addAction(pSaveAsAction);
+    pMenu->addAction(pExitAction);
+    menuBar()->addMenu(pMenu);
 }
 
 //! Create the action to change the application language
@@ -292,7 +340,6 @@ void MainWindow::saveSettings()
     mSettings.setValue(Constants::Settings::skLanguage, MainWindow::language);
     mSettings.setValue(Constants::Settings::skGeometry, saveGeometry());
     mSettings.setValue(Constants::Settings::skState, saveState());
-    mSettings.setValue(Constants::Settings::skDockingState, mpDockManager->saveState());
     mSettings.endGroup();
     if (mSettings.status() == QSettings::NoError)
         qInfo() << tr("Settings were written to the file %1").arg(Constants::Settings::skFileName);
@@ -308,12 +355,28 @@ void MainWindow::restoreSettings()
     if (lang == language)
     {
         bool isOk = restoreGeometry(mSettings.value(Constants::Settings::skGeometry).toByteArray())
-                    && restoreState(mSettings.value(Constants::Settings::skState).toByteArray())
-                    && mpDockManager->restoreState(mSettings.value(Constants::Settings::skDockingState).toByteArray());
+                    && restoreState(mSettings.value(Constants::Settings::skState).toByteArray());
         if (isOk)
             qInfo() << tr("Settings were restored from the file %1").arg(Constants::Settings::skFileName);
     }
     mSettings.endGroup();
+}
+
+//! Save the project using the file dialog
+void MainWindow::saveAsProjectDialog()
+{
+    static QString const kExpectedSuffix = "mat";
+
+    QString pathFile = QFileDialog::getSaveFileName(this, tr("Save Project"), Utility::getLastDirectory(mSettings).path(),
+                                                    tr("Project file format (*%1)").arg(kExpectedSuffix));
+    if (pathFile.isEmpty())
+        return;
+
+    // Modify the suffix, if necessary
+    Utility::modifyFileSuffix(pathFile, kExpectedSuffix);
+
+    // Save the project
+    saveAsProject(pathFile);
 }
 
 //! Show information about the program
@@ -328,6 +391,13 @@ void MainWindow::about()
                                 .arg(APP_NAME, VERSION_FULL, date, author, contact);
     QString const title = tr("About %1").arg(APP_NAME);
     QMessageBox::about(this, title, message);
+}
+
+//! Update the main window state after editing
+void MainWindow::onEdited()
+{
+    setModified(true);
+    qInfo() << tr("Editing finished");
 }
 
 //! Helper function to log all the messages

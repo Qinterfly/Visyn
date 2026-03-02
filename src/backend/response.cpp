@@ -248,7 +248,7 @@ QList<Response> ResponseIO::read(Visom::VaufxFile& file)
         props.domain = Domain::kTime;
         props.dimension = (Dimension) subheader.dimension;
         props.sampleRate = header.sampleRate;
-        props.name = QString::fromStdWString(subheader.name);
+        props.name = QString::fromStdU16String(subheader.name);
     }
 
     // Helper function for reading data

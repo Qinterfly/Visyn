@@ -2,6 +2,7 @@
 
 #include "fileutility.h"
 #include "project.h"
+#include "projecteditor.h"
 #include "testfrontend.h"
 
 using namespace Tests;
@@ -11,40 +12,28 @@ using namespace Backend::Core;
 
 TestFrontend::TestFrontend()
 {
-    mpMainWindow = new MainWindow;
+    mpMainWindow = new MainWindow(nullptr, false);
 }
 
-//! Create the test project to view
-void TestFrontend::testSetProject()
+//! Create a project
+void TestFrontend::testProjectEditor()
 {
     // Set the files to process
     QString record = "try3";
     QString pathFileResponses = Utility::combineFilePath(INPUT_DIR, record + ".vaufx");
-    QString pathFileRefSpectrums = Utility::combineFilePath(INPUT_DIR, record + ".mat");
+    QString pathFileSpectrums = Utility::combineFilePath(INPUT_DIR, record + ".mat");
 
-    // Read the responses
-    QList<Response> responses = ResponseIO::read(pathFileResponses);
+    // Retrieve the project editor
+    ProjectEditor* pEditor = mpMainWindow->projectEditor();
 
-    // Read the reference spectrum
-    QList<Response> refSpectrums = ResponseIO::read(pathFileRefSpectrums);
+    // Read the responses and spectrums
+    pEditor->readResponses(pathFileResponses);
+    pEditor->readSpectrums(pathFileSpectrums);
 
     // Perform the solution
-    HarmonicSolver solver(responses);
-    solver.options.smoothFactor = 1e-3;
-    solver.options.numIter = 10;
-    solver.options.numAverages = 1;
-    solver.refSpectrums = refSpectrums;
-    HarmonicSolution solution = solver.solve();
-
-    // Create the project
-    Project project(record);
-    project.responses = responses;
-    project.spectrums = refSpectrums;
-    project.options = solver.options;
-    project.solution = solution;
+    pEditor->solve();
 
     // Show the window
-    mpMainWindow->setProject(project);
     mpMainWindow->show();
 }
 
