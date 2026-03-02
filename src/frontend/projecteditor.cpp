@@ -21,6 +21,7 @@ ProjectEditor::ProjectEditor(QSettings& settings, Project& project, QWidget* pPa
 {
     setFont(Utility::getFont());
     createContent();
+    createConnections();
     refresh();
 }
 
@@ -42,6 +43,7 @@ void ProjectEditor::readResponses(QString const& pathFile)
         qInfo() << tr("Responses were successfully loaded from the file");
     }
     refresh();
+    emit requestPlot();
 }
 
 //! Read spectrums from a file
@@ -57,6 +59,7 @@ void ProjectEditor::readSpectrums(QString const& pathFile)
         qInfo() << tr("Spectrums were successfully loaded from the file");
     }
     refresh();
+    emit requestPlot();
 }
 
 //! Obtain the harmonic solution
@@ -68,6 +71,7 @@ void ProjectEditor::solve()
     mProject.solution = solver.solve();
     if (!mProject.solution.isEmpty())
         qInfo() << tr("Harmonic solver finished successfully");
+    emit requestPlot();
 }
 
 //! Update the widget state

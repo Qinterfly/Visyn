@@ -35,6 +35,7 @@ public:
 
 signals:
     void edited();
+    void requestPlot();
 
 private:
     // Content

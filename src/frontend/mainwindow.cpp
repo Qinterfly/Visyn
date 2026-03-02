@@ -96,7 +96,7 @@ void MainWindow::createContent()
     createHelpActions();
 
     // Create the widgets
-    mpViewManager = new ViewManager;
+    mpViewManager = new ViewManager(mProject);
     mpProjectEditor = new ProjectEditor(mSettings, mProject);
     QSplitter* pSplitter = new QSplitter(Qt::Horizontal);
     pSplitter->addWidget(mpViewManager);
@@ -111,7 +111,9 @@ void MainWindow::createContent()
 //! Connect the widgets between each other
 void MainWindow::createConnections()
 {
-    connect(mpProjectEditor, &ProjectEditor::edited, this, &MainWindow::onEdited);
+    // Project editor
+    connect(mpProjectEditor, &ProjectEditor::edited, this, &MainWindow::processEdited);
+    connect(mpProjectEditor, &ProjectEditor::requestPlot, mpViewManager, &ViewManager::plot);
 }
 
 //! Create the actions to interact with files
@@ -394,7 +396,7 @@ void MainWindow::about()
 }
 
 //! Update the main window state after editing
-void MainWindow::onEdited()
+void MainWindow::processEdited()
 {
     setModified(true);
     qInfo() << tr("Editing finished");

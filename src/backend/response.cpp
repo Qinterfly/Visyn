@@ -72,6 +72,30 @@ VectorXcd const& Response::complexValues() const
     return mComplexValues;
 }
 
+VectorXd Response::real() const
+{
+    if (isComplex())
+        return mComplexValues.real();
+    else
+        return mRealValues;
+}
+
+VectorXd Response::imag() const
+{
+    if (isComplex())
+        return mComplexValues.imag();
+    else
+        return {};
+}
+
+VectorXd Response::amplitudes() const
+{
+    if (isComplex())
+        return mComplexValues.cwiseAbs();
+    else
+        return mRealValues.cwiseAbs();
+}
+
 VectorXd Response::phases() const
 {
     if (mType != ValueType::kComplex)

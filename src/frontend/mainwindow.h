@@ -65,7 +65,7 @@ private:
     void about();
 
     // Slots
-    void onEdited();
+    void processEdited();
 
 private:
     QSettings mSettings;

@@ -5,6 +5,7 @@
 #include <QTableWidgetItem>
 #include <QToolBar>
 
+#include "customplot.h"
 #include "uiconstants.h"
 #include "uiutility.h"
 
@@ -48,6 +49,14 @@ void setShortcutHints(QToolBar* pToolBar)
             continue;
         pAction->setToolTip(QString("%1 (%2)").arg(pAction->toolTip(), shortcut.toString()));
     }
+}
+
+//! Helper function to get circular index
+int getRepeatedIndex(int index, int size)
+{
+    if (index >= size)
+        return index % size;
+    return index;
 }
 
 //! Substitute a file suffix to the expected one, if necessary
@@ -124,5 +133,34 @@ QTableWidgetItem* createTableItem(QString const& text, Qt::AlignmentFlag alignme
     QTableWidgetItem* pItem = new QTableWidgetItem(text);
     pItem->setTextAlignment(alignment);
     return pItem;
+}
+
+//! Get icon for legend
+QIcon getIcon(QCPScatterStyle const& style, QSize const& size, bool isLine, bool isMarker)
+{
+    // Construct the pixmap to be drawn at
+    QPixmap pixmap(size);
+    pixmap.fill(Qt::transparent);
+
+    // Create the painter
+    QCPPainter painter(&pixmap);
+    painter.setRenderHint(QPainter::Antialiasing);
+    style.applyTo(&painter, style.pen());
+
+    // Draw the line style
+    if (isLine)
+    {
+        QLineF line(0, size.height() / 2.0, size.width(), size.height() / 2);
+        painter.drawLine(line);
+    }
+
+    // Draw the scatter style
+    if (isMarker)
+    {
+        QRectF targetRect(0, 0, size.width(), size.height());
+        style.drawShape(&painter, targetRect.center());
+    }
+
+    return QIcon(pixmap);
 }
 }

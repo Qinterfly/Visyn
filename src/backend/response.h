@@ -82,6 +82,10 @@ public:
     VectorXd const& keys() const;
     VectorXd const& realValues() const;
     VectorXcd const& complexValues() const;
+
+    VectorXd real() const;
+    VectorXd imag() const;
+    VectorXd amplitudes() const;
     VectorXd phases() const;
 
     int index(double key) const;

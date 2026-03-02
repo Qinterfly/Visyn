@@ -1,6 +1,7 @@
 {
 	"name": "visyn",
 	"dependencies": [
+		"magic-enum",
 		"eigen3",
 		"fftw3",
 		"matio"

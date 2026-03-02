@@ -3,6 +3,7 @@ set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets)
+find_package(magic_enum CONFIG REQUIRED)
 
 set(FRONTEND_HEADERS
     mainwindow.h
@@ -40,7 +41,7 @@ target_link_libraries(frontend PRIVATE
     Qt::Core
     Qt::Gui
     Qt::Widgets
-    ads::qtadvanceddocking
+    magic_enum::magic_enum
     qtpropertybrowser
     qcustomplot
     backend
