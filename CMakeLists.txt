@@ -9,11 +9,15 @@ set(APP_CREATOR "Pavel Lakiza")
 ## Version
 set(VERSION_MAJOR 0)
 set(VERSION_MINOR 0)
-set(VERSION_PATCH 6)
+set(VERSION_PATCH 7)
 set(VERSION_FULL ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH})
 ## Directories
 set(INPUT_DIR ${CMAKE_SOURCE_DIR}/input)
 set(OUTPUT_DIR ${CMAKE_SOURCE_DIR}/output)
+set(RESOURCES_DIR ${CMAKE_SOURCE_DIR}/resources)
+set(TRANSLATIONS_DIR ${RESOURCES_DIR}/translations)
+## Files
+set(RESOURCES_FILE ${RESOURCES_DIR}/resources.qrc)
 
 # Set language standard
 set(CMAKE_CXX_STANDARD 23)

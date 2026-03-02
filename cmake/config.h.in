@@ -17,5 +17,7 @@
 // Directories
 #define INPUT_DIR "@INPUT_DIR@"
 #define OUTPUT_DIR "@OUTPUT_DIR@"
+#define TRANSLATIONS_DIR "@TRANSLATIONS_DIR@"
+#define RESOURCES_DIR "@RESOURCES_DIR@"
 
 #endif // CONFIG_H_IN
