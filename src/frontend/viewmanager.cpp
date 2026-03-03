@@ -59,16 +59,15 @@ void ViewManager::createContent()
     mpTabWidget->setTabsClosable(false);
     mpTabWidget->setTabsRenamable(false);
 
-    // Create the views
-    mpResponseView = new ResponseView(mProject.responses);
-    mpRefSpectrumView = new ResponseView(mProject.spectrums);
-    mpSegmentView = new SegmentView(mProject.solution);
-    mpResSpectrumView = new ResponseView(mProject.solution.spectrums);
+    // Create the view options
+    auto timeOptions = ResponseView::Options(ResponseView::kReal, ResponseView::kNone);
+    auto freqOptions = ResponseView::Options(ResponseView::kImag, ResponseView::kReal);
 
-    // Intialize the views
-    mpResponseView->setTypes(ResponseView::kReal, ResponseView::kNone);
-    mpRefSpectrumView->setTypes(ResponseView::kImag, ResponseView::kReal);
-    mpResSpectrumView->setTypes(ResponseView::kImag, ResponseView::kReal);
+    // Create the views
+    mpResponseView = new ResponseView(mProject.responses, timeOptions);
+    mpRefSpectrumView = new ResponseView(mProject.spectrums, freqOptions);
+    mpSegmentView = new SegmentView(mProject.solution);
+    mpResSpectrumView = new ResponseView(mProject.solution.spectrums, freqOptions);
 
     // Add the views
     mpTabWidget->addTab(mpResponseView, QIcon(), tr("Time Responses"));
@@ -83,9 +82,25 @@ void ViewManager::createContent()
     setLayout(pLayout);
 }
 
-ResponseView::ResponseView(QList<Response> const& responses, QWidget* pParent)
-    : QWidget(pParent)
-    , mResponses(responses)
+ResponseView::Options::Options()
+{
+    upType = kReal;
+    downType = kNone;
+    colors = Constants::Colors::skStandardColors;
+    indicesSelected.resize(1);
+    std::iota(indicesSelected.begin(), indicesSelected.end(), 0);
+}
+
+ResponseView::Options::Options(Type uUpType, Type uDownType)
+    : Options()
+{
+    upType = uUpType;
+    downType = uDownType;
+}
+
+ResponseView::ResponseView(QList<Response> const& responses, Options const& options)
+    : mResponses(responses)
+    , mOptions(options)
 {
     setFont(Utility::getFont());
     createContent();
@@ -93,22 +108,16 @@ ResponseView::ResponseView(QList<Response> const& responses, QWidget* pParent)
     refresh();
 }
 
-void ResponseView::setTypes(Type up, Type down)
-{
-    Utility::setIndexByKey(mpUpComboBox, up);
-    Utility::setIndexByKey(mpDownComboBox, down);
-}
-
 void ResponseView::clear()
 {
     mpUpPlot->clear();
     mpDownPlot->clear();
+    mMaskSelected.clear();
 }
 
 void ResponseView::refresh()
 {
     // Constants
-    QSize const kIconSize(16, 16);
     QMap<Type, QString> typeNames;
     typeNames[kNone] = QString();
     typeNames[kReal] = tr("Real");
@@ -116,19 +125,20 @@ void ResponseView::refresh()
     typeNames[kAmplitude] = tr("Amplitude");
     typeNames[kPhase] = tr("Phase");
 
+    // Build up the selection mask
+    int numSelected = mOptions.indicesSelected.size();
+    int numResponses = mResponses.size();
+    mMaskSelected.resize(numResponses, false);
+    for (int i = 0; i != numSelected; ++i)
+    {
+        int iSelect = mOptions.indicesSelected[i];
+        if (iSelect >= 0 && iSelect < numResponses)
+            mMaskSelected[iSelect] = true;
+    }
+
     // Block the comboboxes
     QSignalBlocker blockerUpComboBox(mpUpComboBox);
     QSignalBlocker blockerDownComboBox(mpDownComboBox);
-
-    // Get the selected types
-    Type upType = kNone;
-    Type downType = kNone;
-    if (mpUpComboBox->currentIndex() >= 0)
-        upType = (Type) mpUpComboBox->currentData().toInt();
-    if (mpUpComboBox->currentIndex() >= 0)
-        downType = (Type) mpDownComboBox->currentData().toInt();
-    if (upType == kNone && downType == kNone)
-        upType = kReal;
 
     // Insert the types
     mpUpComboBox->clear();
@@ -142,15 +152,12 @@ void ResponseView::refresh()
     }
 
     // Select the types
-    Utility::setIndexByKey(mpUpComboBox, upType);
-    Utility::setIndexByKey(mpDownComboBox, downType);
+    Utility::setIndexByKey(mpUpComboBox, mOptions.upType);
+    Utility::setIndexByKey(mpDownComboBox, mOptions.downType);
 
     // Insert the responses
     QSignalBlocker blockerSelectList(mpSelectList);
     mpSelectList->clear();
-    QList<QColor> const& colors = Constants::Colors::skStandardColors;
-    int numResponses = mResponses.size();
-    int numColors = colors.size();
     for (int iResponse = 0; iResponse != numResponses; ++iResponse)
     {
         QListWidgetItem* pItem = new QListWidgetItem(mResponses[iResponse].props.name);
@@ -160,46 +167,35 @@ void ResponseView::refresh()
         QRect textRect = fontMetrics.boundingRect(pItem->text());
         QSize iconSize = QSize(textRect.height(), textRect.height());
 
-        // Create icon
-        int iColor = Utility::getRepeatedIndex(iResponse, numColors);
-        QCPScatterStyle style(QCPScatterStyle::ssNone, colors[iResponse], 1.0);
+        // Set the icon
+        int iColor = Utility::getRepeatedIndex(iResponse, mOptions.colors.size());
+        QCPScatterStyle style(QCPScatterStyle::ssNone, mOptions.colors[iColor], 1.0);
         QIcon icon = Utility::getIcon(style, iconSize, true, false);
+        pItem->setIcon(icon);
 
         // Add item
-        pItem->setIcon(icon);
-        pItem->setData(Qt::UserRole, iResponse);
         mpSelectList->addItem(pItem);
+
+        // Select the item
+        if (mMaskSelected[iResponse])
+            mpSelectList->setCurrentItem(pItem, QItemSelectionModel::Select);
     }
 }
 
 void ResponseView::plot()
 {
-    // Remove previously plotted data
     clear();
-
-    // Refresh the widgets
     refresh();
-
-    // Get the types
-    Type upType = kNone;
-    Type downType = kNone;
-    if (mpUpComboBox->currentIndex() >= 0)
-        upType = (Type) mpUpComboBox->currentData().toInt();
-    if (mpUpComboBox->currentIndex() >= 0)
-        downType = (Type) mpDownComboBox->currentData().toInt();
-
-    // Set the visibility
-    mpUpPlot->setVisible(upType != kNone);
-    mpDownPlot->setVisible(downType != kNone);
-
-    // Render
-    draw(upType, mpUpPlot);
-    draw(downType, mpDownPlot);
+    draw(mOptions.upType, mpUpPlot);
+    draw(mOptions.downType, mpDownPlot);
 }
 
 void ResponseView::draw(Type type, CustomPlot* pPlot)
 {
-    // Sanity check
+    // Set the visibility
+    pPlot->setVisible(type != kNone);
+
+    // Do not render invisible plots
     if (type == kNone)
         return;
 
@@ -210,8 +206,8 @@ void ResponseView::draw(Type type, CustomPlot* pPlot)
     for (int iResponse = 0; iResponse != numResponses; ++iResponse)
     {
         // Check if the response is selected for plotting
-        // if (!mMaskSelected[iResponse])
-        //     continue;
+        if (!mMaskSelected[iResponse])
+            continue;
         Response const& response = mResponses[iResponse];
         if (response.isEmpty())
             continue;
@@ -257,9 +253,48 @@ void ResponseView::draw(Type type, CustomPlot* pPlot)
     pPlot->replot();
 }
 
+void ResponseView::setOptions()
+{
+    Type upType = (Type) mpUpComboBox->currentIndex();
+    Type downType = (Type) mpDownComboBox->currentIndex();
+    if (upType != mOptions.upType && upType != kNone && downType != kNone)
+    {
+        switch (upType)
+        {
+        case kReal:
+            downType = kImag;
+            break;
+        case kImag:
+            downType = kReal;
+            break;
+        case kAmplitude:
+            downType = kPhase;
+            break;
+        case kPhase:
+            downType = kAmplitude;
+            break;
+        default:
+            break;
+        }
+    }
+    mOptions.upType = upType;
+    mOptions.downType = downType;
+
+    plot();
+}
+
+//! Process changing selected responses
 void ResponseView::processSelected()
 {
-    // TODO
+    // Save the selected indices
+    auto selectedItems = mpSelectList->selectedItems();
+    int numSelected = selectedItems.size();
+    mOptions.indicesSelected.resize(numSelected);
+    for (int i = 0; i != numSelected; ++i)
+        mOptions.indicesSelected[i] = mpSelectList->row(selectedItems[i]);
+
+    // Refresh the plots
+    plot();
 }
 
 //! Create all the widgets
@@ -313,9 +348,9 @@ void ResponseView::createContent()
 //! Set the connections between the widgets
 void ResponseView::createConnections()
 {
-    connect(mpUpComboBox, &QComboBox::currentIndexChanged, this, &ResponseView::plot);
-    connect(mpDownComboBox, &QComboBox::currentIndexChanged, this, &ResponseView::plot);
-    connect(mpSelectList, &QListWidget::currentItemChanged, this, &ResponseView::processSelected);
+    connect(mpUpComboBox, &QComboBox::currentIndexChanged, this, &ResponseView::setOptions);
+    connect(mpDownComboBox, &QComboBox::currentIndexChanged, this, &ResponseView::setOptions);
+    connect(mpSelectList, &QListWidget::itemSelectionChanged, this, &ResponseView::processSelected);
 }
 
 SegmentView::SegmentView(HarmonicSolution const& solution, QWidget* pParent)

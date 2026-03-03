@@ -47,6 +47,7 @@ void MainWindow::newProject()
     qInfo() << tr("New project was created");
     setModified(false);
     mpProjectEditor->refresh();
+    mpViewManager->plot();
 }
 
 //! Save the project using the path specified

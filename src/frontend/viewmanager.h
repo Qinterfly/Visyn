@@ -63,10 +63,19 @@ public:
         kAmplitude,
         kPhase
     };
-    ResponseView(QList<Backend::Core::Response> const& responses, QWidget* pParent = nullptr);
-    virtual ~ResponseView() = default;
+    struct Options
+    {
+        Options();
+        Options(Type uUpType, Type uDownType);
+        ~Options() = default;
 
-    void setTypes(Type up, Type down);
+        Type upType;
+        Type downType;
+        QList<int> indicesSelected;
+        QList<QColor> colors;
+    };
+    ResponseView(QList<Backend::Core::Response> const& responses, Options const& options = Options());
+    virtual ~ResponseView() = default;
 
     void clear();
     void refresh();
@@ -81,10 +90,12 @@ private:
     void draw(Type type, CustomPlot* pPlot);
 
     // Slots
+    void setOptions();
     void processSelected();
 
 private:
     QList<Backend::Core::Response> const& mResponses;
+    Options mOptions;
 
     // Widgets
     QComboBox* mpUpComboBox;
