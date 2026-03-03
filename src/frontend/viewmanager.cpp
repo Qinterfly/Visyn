@@ -201,7 +201,11 @@ void ResponseView::draw(Type type, CustomPlot* pPlot)
 
     // Sanity check
     if (mResponses.empty() || type == kNone)
+    {
+        pPlot->rescaleAxes();
+        pPlot->replot();
         return;
+    }
 
     // Process all the responses
     QList<QColor> const colors = Constants::Colors::skStandardColors;
@@ -395,7 +399,7 @@ void ResponseView::createContent()
     mpSelectList->setSelectionMode(QAbstractItemView::ExtendedSelection);
     mpSelectList->setContentsMargins(0, 0, 0, 0);
     mpSelectList->setResizeMode(QListWidget::Adjust);
-    mpSelectList->setSizeAdjustPolicy(QListWidget::AdjustToContents);
+    mpSelectList->setSizeAdjustPolicy(QListWidget::AdjustToContentsOnFirstShow);
 
     // Create the edit layout
     QHBoxLayout* pEditLayout = new QHBoxLayout;
@@ -433,7 +437,7 @@ void ResponseView::createContent()
     QSplitter* pSplitter = new QSplitter(Qt::Horizontal);
     pSplitter->addWidget(pPlotWidget);
     pSplitter->addWidget(pSelectWidget);
-    pSplitter->setStretchFactor(0, 2);
+    pSplitter->setStretchFactor(0, 4);
     pSplitter->setStretchFactor(1, 1);
 
     // Set the main layout

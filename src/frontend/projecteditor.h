@@ -9,6 +9,7 @@
 QT_FORWARD_DECLARE_CLASS(QGroupBox)
 QT_FORWARD_DECLARE_CLASS(QComboBox)
 QT_FORWARD_DECLARE_CLASS(QSettings)
+QT_FORWARD_DECLARE_CLASS(QPlainTextEdit)
 
 namespace Backend::Core
 {
@@ -44,13 +45,17 @@ private:
     QGroupBox* createResponseGroupBox();
     QGroupBox* createSpectrumGroupBox();
     QGroupBox* createSolverGroupBox();
+    QGroupBox* createInfoGroupBox();
+    QGroupBox* createExportGroupBox();
 
     // Dialogs
     void openResponseDialog();
     void openSpectrumDialog();
+    void exportDialog();
 
     // Slots
     void setOptions();
+    void setInfo();
 
 private:
     QSettings& mSettings;
@@ -67,6 +72,8 @@ private:
     Edit1i* mpNumIterEdit;
     Edit1i* mpNumAveragesEdit;
     Edit1i* mpNumSkipPeriodsEdit;
+    QPlainTextEdit* mpInfoEdit;
+    QComboBox* mpExportComboBox;
 };
 }
 
