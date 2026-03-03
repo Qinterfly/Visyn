@@ -108,6 +108,7 @@ ResponseView::ResponseView(QList<Response> const& responses, Options const& opti
     refresh();
 }
 
+//! Clear all the plots
 void ResponseView::clear()
 {
     mpUpPlot->clear();
@@ -115,6 +116,7 @@ void ResponseView::clear()
     mMaskSelected.clear();
 }
 
+//! Update all the widgets
 void ResponseView::refresh()
 {
     // Constants
@@ -182,6 +184,7 @@ void ResponseView::refresh()
     }
 }
 
+//! Render the graphs
 void ResponseView::plot()
 {
     clear();
@@ -190,13 +193,14 @@ void ResponseView::plot()
     draw(mOptions.downType, mpDownPlot);
 }
 
+//! Render the view of the specified type
 void ResponseView::draw(Type type, CustomPlot* pPlot)
 {
     // Set the visibility
     pPlot->setVisible(type != kNone);
 
-    // Do not render invisible plots
-    if (type == kNone)
+    // Sanity check
+    if (mResponses.empty() || type == kNone)
         return;
 
     // Process all the responses
@@ -248,13 +252,40 @@ void ResponseView::draw(Type type, CustomPlot* pPlot)
         createGraph(pPlot, keys, values, colors[iColor], response.props.name);
     }
 
+    // Set the labels
+    QString title;
+    QString xLabel = mResponses.first().isComplex() ? tr("Frequency, Hz") : tr("Time, s");
+    QString yLabel = tr("Acceleration, m/s\xC2\xB2");
+    switch (type)
+    {
+    case kReal:
+        title = "Re";
+        break;
+    case kImag:
+        title = "Im";
+        break;
+    case kAmplitude:
+        title = "A";
+        break;
+    case kPhase:
+        title = "φ";
+        break;
+    default:
+        break;
+    }
+    pPlot->xAxis->setLabel(xLabel);
+    pPlot->yAxis->setLabel(yLabel);
+    pPlot->setTitle(title);
+
     // Replot
     pPlot->rescaleAxes();
     pPlot->replot();
 }
 
+//! Update all the options
 void ResponseView::setOptions()
 {
+    // Set the types
     Type upType = (Type) mpUpComboBox->currentIndex();
     Type downType = (Type) mpDownComboBox->currentIndex();
     if (upType != mOptions.upType && upType != kNone && downType != kNone)
@@ -280,6 +311,7 @@ void ResponseView::setOptions()
     mOptions.upType = upType;
     mOptions.downType = downType;
 
+    // Refresh the plots
     plot();
 }
 
@@ -295,6 +327,55 @@ void ResponseView::processSelected()
 
     // Refresh the plots
     plot();
+}
+
+//! Select all responses
+void ResponseView::selectAll()
+{
+    // Block the signals
+    QSignalBlocker blocker(mpSelectList);
+
+    // Select all the items
+    int numModes = mpSelectList->count();
+    for (int i = 0; i != numModes; ++i)
+        mpSelectList->setCurrentRow(i, QItemSelectionModel::Select);
+
+    // Process the selection
+    processSelected();
+}
+
+//! Invert the selection of responses
+void ResponseView::invertSelect()
+{
+    // Block the signals
+    QSignalBlocker blocker(mpSelectList);
+
+    // Slice selected items
+    QList<QListWidgetItem*> selectedItems = mpSelectList->selectedItems();
+
+    // Slice dimensions
+    int numModes = mpSelectList->count();
+    int numSelected = selectedItems.size();
+
+    // Set the mask of modes
+    QList<bool> maskModes(numModes, true);
+    for (int i = 0; i != numSelected; ++i)
+    {
+        int iMode = mpSelectList->row(selectedItems[i]);
+        maskModes[iMode] = false;
+    }
+
+    // Apply the selection
+    for (int i = 0; i != numModes; ++i)
+    {
+        if (maskModes[i])
+            mpSelectList->setCurrentRow(i, QItemSelectionModel::Select);
+        else
+            mpSelectList->setCurrentRow(i, QItemSelectionModel::Deselect);
+    }
+
+    // Process the selection
+    processSelected();
 }
 
 //! Create all the widgets
@@ -314,28 +395,44 @@ void ResponseView::createContent()
     mpSelectList->setSelectionMode(QAbstractItemView::ExtendedSelection);
     mpSelectList->setContentsMargins(0, 0, 0, 0);
     mpSelectList->setResizeMode(QListWidget::Adjust);
-    mpSelectList->setSizeAdjustPolicy(QListWidget::AdjustToContentsOnFirstShow);
+    mpSelectList->setSizeAdjustPolicy(QListWidget::AdjustToContents);
 
-    // Create the control layout
-    QHBoxLayout* pControlLayout = new QHBoxLayout;
-    pControlLayout->addWidget(new QLabel(tr("Top: ")));
-    pControlLayout->addWidget(mpUpComboBox);
-    pControlLayout->addWidget(new QLabel(tr("Bottom: ")));
-    pControlLayout->addWidget(mpDownComboBox);
-    pControlLayout->addStretch();
+    // Create the edit layout
+    QHBoxLayout* pEditLayout = new QHBoxLayout;
+    pEditLayout->addWidget(new QLabel(tr("Top: ")));
+    pEditLayout->addWidget(mpUpComboBox);
+    pEditLayout->addWidget(new QLabel(tr("Bottom: ")));
+    pEditLayout->addWidget(mpDownComboBox);
+    pEditLayout->addStretch();
 
     // Create the plot layout
     QWidget* pPlotWidget = new QWidget;
     QVBoxLayout* pPlotLayout = new QVBoxLayout;
-    pPlotLayout->addLayout(pControlLayout);
+    pPlotLayout->addLayout(pEditLayout);
     pPlotLayout->addWidget(mpUpPlot);
     pPlotLayout->addWidget(mpDownPlot);
     pPlotWidget->setLayout(pPlotLayout);
 
+    // Create the select layout
+    QWidget* pSelectWidget = new QWidget;
+    QHBoxLayout* pControlLayout = new QHBoxLayout;
+    QVBoxLayout* pSelectLayout = new QVBoxLayout;
+    QPushButton* pSelectAllButton = new QPushButton(tr("Select all"));
+    QPushButton* pInvertButton = new QPushButton(tr("Invert"));
+    connect(pSelectAllButton, &QPushButton::clicked, this, &ResponseView::selectAll);
+    connect(pInvertButton, &QPushButton::clicked, this, &ResponseView::invertSelect);
+    pControlLayout->addStretch();
+    pControlLayout->addWidget(pSelectAllButton);
+    pControlLayout->addWidget(pInvertButton);
+    pControlLayout->addStretch();
+    pSelectLayout->addLayout(pControlLayout);
+    pSelectLayout->addWidget(mpSelectList);
+    pSelectWidget->setLayout(pSelectLayout);
+
     // Create the splitter
     QSplitter* pSplitter = new QSplitter(Qt::Horizontal);
     pSplitter->addWidget(pPlotWidget);
-    pSplitter->addWidget(mpSelectList);
+    pSplitter->addWidget(pSelectWidget);
     pSplitter->setStretchFactor(0, 2);
     pSplitter->setStretchFactor(1, 1);
 

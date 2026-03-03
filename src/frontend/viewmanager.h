@@ -22,6 +22,7 @@ class CustomTabWidget;
 class ResponseView;
 class SegmentView;
 
+//! Class to handle views
 class ViewManager : public QWidget
 {
     Q_OBJECT
@@ -50,6 +51,7 @@ private:
     ResponseView* mpResSpectrumView;
 };
 
+//! Class to view responses
 class ResponseView : public QWidget
 {
     Q_OBJECT
@@ -92,6 +94,8 @@ private:
     // Slots
     void setOptions();
     void processSelected();
+    void selectAll();
+    void invertSelect();
 
 private:
     QList<Backend::Core::Response> const& mResponses;
@@ -108,6 +112,7 @@ private:
     QList<bool> mMaskSelected;
 };
 
+//! Class to view segments of a harmonic solution
 class SegmentView : public QWidget
 {
     Q_OBJECT
