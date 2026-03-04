@@ -7,6 +7,7 @@ find_package(Qt6 REQUIRED COMPONENTS Widgets)
 qt_add_executable(application
     main.cpp
     ${RESOURCES_FILE}
+    ${INFO_FILE}
 )
 
 set_target_properties(application PROPERTIES
@@ -28,4 +29,21 @@ install(TARGETS application
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
+
+# Distribute files
+set(scriptDir ${PROJECT_SOURCE_DIR}/cmake CACHE INTERNAL "Cmake scripts directory")
+string(TOLOWER ${CMAKE_SYSTEM_NAME} systemName)
+string(TOLOWER ${CMAKE_BUILD_TYPE} configName)
+set(installDir ${INSTALL_DIR}/${systemName}-${configName} CACHE INTERNAL "Installation directory")
+if (WIN32)
+    if (CMAKE_BUILD_TYPE STREQUAL "Release")
+        find_program(TOOL_WINDEPLOYQT NAMES windeployqt)
+        set(targetFiles ${CMAKE_CURRENT_BINARY_DIR}/*)
+        add_custom_command(TARGET application POST_BUILD
+            COMMAND ${TOOL_WINDEPLOYQT} $<TARGET_FILE:application>
+            COMMAND ${CMAKE_COMMAND} -E make_directory ${installDir}
+            COMMAND ${CMAKE_COMMAND} "-DSRCS=${targetFiles}" "-DDEST=${installDir}" -P "${scriptDir}/copy.cmake"
+        )
+    endif()
+endif()
 

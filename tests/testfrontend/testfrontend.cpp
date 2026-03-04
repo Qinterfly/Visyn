@@ -12,7 +12,7 @@ using namespace Backend::Core;
 
 TestFrontend::TestFrontend()
 {
-    mpMainWindow = new MainWindow(nullptr, false);
+    mpMainWindow = new MainWindow;
 }
 
 //! Create a project

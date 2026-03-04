@@ -259,7 +259,7 @@ void ResponseView::draw(Type type, CustomPlot* pPlot)
     // Set the labels
     QString title;
     QString xLabel = mResponses.first().isComplex() ? tr("Frequency, Hz") : tr("Time, s");
-    QString yLabel = tr("Acceleration, m/s\xC2\xB2");
+    QString yLabel = tr("Acceleration, m/s%1").arg(QChar(0x00B2));
     switch (type)
     {
     case kReal:
@@ -410,15 +410,12 @@ void ResponseView::createContent()
     pEditLayout->addStretch();
 
     // Create the plot layout
-    QWidget* pPlotWidget = new QWidget;
     QVBoxLayout* pPlotLayout = new QVBoxLayout;
     pPlotLayout->addLayout(pEditLayout);
     pPlotLayout->addWidget(mpUpPlot);
     pPlotLayout->addWidget(mpDownPlot);
-    pPlotWidget->setLayout(pPlotLayout);
 
     // Create the select layout
-    QWidget* pSelectWidget = new QWidget;
     QHBoxLayout* pControlLayout = new QHBoxLayout;
     QVBoxLayout* pSelectLayout = new QVBoxLayout;
     QPushButton* pSelectAllButton = new QPushButton(tr("Select all"));
@@ -431,18 +428,13 @@ void ResponseView::createContent()
     pControlLayout->addStretch();
     pSelectLayout->addLayout(pControlLayout);
     pSelectLayout->addWidget(mpSelectList);
-    pSelectWidget->setLayout(pSelectLayout);
-
-    // Create the splitter
-    QSplitter* pSplitter = new QSplitter(Qt::Horizontal);
-    pSplitter->addWidget(pPlotWidget);
-    pSplitter->addWidget(pSelectWidget);
-    pSplitter->setStretchFactor(0, 4);
-    pSplitter->setStretchFactor(1, 1);
 
     // Set the main layout
     QHBoxLayout* pMainLayout = new QHBoxLayout;
-    pMainLayout->addWidget(pSplitter);
+    pMainLayout->addLayout(pPlotLayout);
+    pMainLayout->addLayout(pSelectLayout);
+    pMainLayout->setStretch(0, 4);
+    pMainLayout->setStretch(1, 1);
     setLayout(pMainLayout);
 }
 
