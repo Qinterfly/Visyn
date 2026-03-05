@@ -25,8 +25,9 @@ private slots:
 
     // Math
     void testStatistics();
-    void testSegmentResponse();
-    void testHarmonicResponses();
+    void testSegments();
+    void testHarmonicAssess();
+    void testHarmonicTry();
 
     // Project
     void testWriteProject();

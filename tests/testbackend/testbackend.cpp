@@ -20,14 +20,15 @@ TestBackend::TestBackend()
 //! Read responses from a *.vaufx file
 void TestBackend::testReadVaufx()
 {
-    QString pathFile = Utility::combineFilePath(INPUT_DIR, "sine1.vaufx");
+    QString pathFile = Utility::combineFilePath(INPUT_DIR, "sine", "sine1.vaufx");
     QList<Response> responses = ResponseIO::read(pathFile);
     QVERIFY(responses.size() == 1);
 }
 
+//! Read responses from a *.mat file
 void TestBackend::testReadMat()
 {
-    QString pathFile = Utility::combineFilePath(INPUT_DIR, "spectrums.mat");
+    QString pathFile = Utility::combineFilePath(INPUT_DIR, "example", "spectrums.mat");
     QList<Response> responses = ResponseIO::read(pathFile);
     QVERIFY(responses.size() == 4);
 }
@@ -36,7 +37,7 @@ void TestBackend::testReadMat()
 void TestBackend::testStatistics()
 {
     double const precision = 1e-9;
-    QString pathFile = Utility::combineFilePath(INPUT_DIR, "test1.mat");
+    QString pathFile = Utility::combineFilePath(INPUT_DIR, "example", "test1.mat");
 
     // Read the response
     auto response = readTestResponse(pathFile);
@@ -59,11 +60,12 @@ void TestBackend::testStatistics()
 }
 
 //! Use harmonic solver to find segments with constant frequency
-void TestBackend::testSegmentResponse()
+void TestBackend::testSegments()
 {
     double const precision = 1e-3;
     QString record = "test2";
-    QString pathFile = Utility::combineFilePath(INPUT_DIR, record + ".mat");
+    QString dir = "example";
+    QString pathFile = Utility::combineFilePath(INPUT_DIR, dir, record + ".mat");
 
     // Read the response
     auto response = readTestResponse(pathFile);
@@ -74,6 +76,7 @@ void TestBackend::testSegmentResponse()
     HarmonicSolver solver(responses);
     solver.options.smoothFactor = 1.0;
     solver.options.numIter = 10;
+    solver.options.levelAmplitude = 0.0;
     HarmonicSolution solution = solver.solve();
 
     // Set the project
@@ -86,12 +89,39 @@ void TestBackend::testSegmentResponse()
     QVERIFY(isEqual(solution.segments.back().freq, 20.007633991400272, precision));
 }
 
-//! Use harmonic solver to compute harmonic responses
-void TestBackend::testHarmonicResponses()
+//! Use harmonic solver to compute harmonic responses for "assess" record
+void TestBackend::testHarmonicAssess()
+{
+    QString record = "test1";
+    QString dir = "assess";
+    QString pathFileResponses = Utility::combineFilePath(INPUT_DIR, dir, record + ".vaufx");
+    QString pathFileRefSpectrums = Utility::combineFilePath(INPUT_DIR, dir, record + ".mat");
+
+    // Read the responses
+    QList<Response> responses = ResponseIO::read(pathFileResponses);
+
+    // Read the reference spectrum
+    QList<Response> refSpectrums = ResponseIO::read(pathFileRefSpectrums);
+
+    // Perform the solution
+    HarmonicSolver solver(responses);
+    solver.options.smoothFactor = 1e-1;
+    solver.options.numIter = 10;
+    solver.options.numAverages = 3;
+    solver.refSpectrums = refSpectrums;
+    HarmonicSolution solution = solver.solve();
+
+    // Check the solution
+    QVERIFY(solution.segments.size() == 31);
+}
+
+//! Use harmonic solver to compute harmonic responses for "try" record
+void TestBackend::testHarmonicTry()
 {
     QString record = "try3";
-    QString pathFileResponses = Utility::combineFilePath(INPUT_DIR, record + ".vaufx");
-    QString pathFileRefSpectrums = Utility::combineFilePath(INPUT_DIR, record + ".mat");
+    QString dir = "try";
+    QString pathFileResponses = Utility::combineFilePath(INPUT_DIR, dir, record + ".vaufx");
+    QString pathFileRefSpectrums = Utility::combineFilePath(INPUT_DIR, dir, record + ".mat");
 
     // Read the responses
     QList<Response> responses = ResponseIO::read(pathFileResponses);
@@ -106,6 +136,8 @@ void TestBackend::testHarmonicResponses()
     solver.options.numAverages = 1;
     solver.refSpectrums = refSpectrums;
     HarmonicSolution solution = solver.solve();
+
+    // Check the solution
     QVERIFY(solution.segments.size() == 83);
     QVERIFY(solution.spectrums.size() == 4);
 

@@ -114,10 +114,14 @@ void ProjectEditor::refresh()
     QSignalBlocker blockerNumIter(mpNumIterEdit);
     QSignalBlocker blockerNumAverages(mpNumAveragesEdit);
     QSignalBlocker blockerNumSkipPeriods(mpNumSkipPeriodsEdit);
+    QSignalBlocker blockerMaxFreq(mpMaxFreqEdit);
+    QSignalBlocker blockerLevelAmplitude(mpLevelAmplitudeEdit);
     mpSmoothFactorEdit->setValue(mProject.options.smoothFactor);
     mpNumIterEdit->setValue(mProject.options.numIter);
     mpNumAveragesEdit->setValue(mProject.options.numAverages);
     mpNumSkipPeriodsEdit->setValue(mProject.options.numSkipPeriods);
+    mpMaxFreqEdit->setValue(mProject.options.maxFreq);
+    mpLevelAmplitudeEdit->setValue(mProject.options.levelAmplitude);
 
     // Set the info
     setInfo();
@@ -127,8 +131,7 @@ void ProjectEditor::refresh()
 void ProjectEditor::createContent()
 {
     QVBoxLayout* pLayout = new QVBoxLayout;
-    pLayout->addWidget(createResponseGroupBox());
-    pLayout->addWidget(createSpectrumGroupBox());
+    pLayout->addWidget(createInputGroupBox());
     pLayout->addWidget(createSolverGroupBox());
     pLayout->addWidget(createInfoGroupBox());
     pLayout->addWidget(createExportGroupBox());
@@ -140,55 +143,46 @@ void ProjectEditor::createContent()
 void ProjectEditor::createConnections()
 {
     // Options
+    connect(mpResponseComboBox, &QComboBox::currentIndexChanged, this, &ProjectEditor::setOptions);
+    connect(mpSpectrumComboBox, &QComboBox::currentIndexChanged, this, &ProjectEditor::setOptions);
     connect(mpSmoothFactorEdit, &Edit1d::valueChanged, this, &ProjectEditor::setOptions);
     connect(mpNumIterEdit, &Edit1i::valueChanged, this, &ProjectEditor::setOptions);
     connect(mpNumAveragesEdit, &Edit1i::valueChanged, this, &ProjectEditor::setOptions);
     connect(mpNumSkipPeriodsEdit, &Edit1i::valueChanged, this, &ProjectEditor::setOptions);
+    connect(mpMaxFreqEdit, &Edit1d::valueChanged, this, &ProjectEditor::setOptions);
+    connect(mpLevelAmplitudeEdit, &Edit1d::valueChanged, this, &ProjectEditor::setOptions);
 }
 
-//! Create a widget to handle responses
-QGroupBox* ProjectEditor::createResponseGroupBox()
+//! Create a widget to handle input data
+QGroupBox* ProjectEditor::createInputGroupBox()
 {
     // Create the layout
-    QHBoxLayout* pLayout = new QHBoxLayout;
+    QGridLayout* pLayout = new QGridLayout;
 
     // Create the widgets
     mpResponsePathEdit = new QLineEdit;
-    mpResponsePathEdit->setReadOnly(true);
-    QPushButton* pOpenButton = new QPushButton(QIcon(":/icons/document-open.svg"), QString());
-    connect(pOpenButton, &QPushButton::clicked, this, &ProjectEditor::openResponseDialog);
-
-    // Combine the widgets
-    pLayout->addWidget(new QLabel(tr("Path: ")));
-    pLayout->addWidget(mpResponsePathEdit);
-    pLayout->addWidget(pOpenButton);
-
-    // Create the group box
-    QGroupBox* pGroupBox = new QGroupBox(tr("Time Responses"));
-    pGroupBox->setLayout(pLayout);
-
-    return pGroupBox;
-}
-
-//! Create a widget to handle spectrums
-QGroupBox* ProjectEditor::createSpectrumGroupBox()
-{
-    // Create the layout
-    QHBoxLayout* pLayout = new QHBoxLayout;
-
-    // Create the widgets
     mpSpectrumPathEdit = new QLineEdit;
+    QPushButton* pOpenResponseButton = new QPushButton(QIcon(":/icons/document-open.svg"), QString());
+    QPushButton* pOpenSpectrumButton = new QPushButton(QIcon(":/icons/document-open.svg"), QString());
+
+    // Initialize the widgets
+    mpResponsePathEdit->setReadOnly(true);
     mpSpectrumPathEdit->setReadOnly(true);
-    QPushButton* pOpenButton = new QPushButton(QIcon(":/icons/document-open.svg"), QString());
-    connect(pOpenButton, &QPushButton::clicked, this, &ProjectEditor::openSpectrumDialog);
+
+    // Set the connections
+    connect(pOpenResponseButton, &QPushButton::clicked, this, &ProjectEditor::openResponseDialog);
+    connect(pOpenSpectrumButton, &QPushButton::clicked, this, &ProjectEditor::openSpectrumDialog);
 
     // Combine the widgets
-    pLayout->addWidget(new QLabel(tr("Path: ")));
-    pLayout->addWidget(mpSpectrumPathEdit);
-    pLayout->addWidget(pOpenButton);
+    pLayout->addWidget(new QLabel(tr("Time responses: ")), 0, 0);
+    pLayout->addWidget(mpResponsePathEdit, 0, 1);
+    pLayout->addWidget(pOpenResponseButton, 0, 2);
+    pLayout->addWidget(new QLabel(tr("Reference spectrums: ")), 1, 0);
+    pLayout->addWidget(mpSpectrumPathEdit, 1, 1);
+    pLayout->addWidget(pOpenSpectrumButton, 1, 2);
 
     // Create the group box
-    QGroupBox* pGroupBox = new QGroupBox(tr("Reference Spectrums"));
+    QGroupBox* pGroupBox = new QGroupBox(tr("Input Data"));
     pGroupBox->setLayout(pLayout);
 
     return pGroupBox;
@@ -220,9 +214,18 @@ QGroupBox* ProjectEditor::createSolverGroupBox()
     mpNumIterEdit = new Edit1i;
     mpNumAveragesEdit = new Edit1i;
     mpNumSkipPeriodsEdit = new Edit1i;
+    mpMaxFreqEdit = new Edit1d;
+    mpLevelAmplitudeEdit = new Edit1d;
+
+    // Initialize the widgets
     mpNumIterEdit->setMinimum(1);
     mpNumAveragesEdit->setMinimum(1);
     mpNumSkipPeriodsEdit->setMinimum(0);
+    mpMaxFreqEdit->setValue(0.0);
+    mpLevelAmplitudeEdit->setMinimum(0.0);
+    mpLevelAmplitudeEdit->setMaximum(1.0);
+
+    // Combine the widgets
     pEditLayout->addWidget(new QLabel(tr("Smooth factor: ")), 0, 0);
     pEditLayout->addWidget(mpSmoothFactorEdit, 0, 1);
     pEditLayout->addWidget(new QLabel(tr("Num. iterations: ")), 0, 2);
@@ -231,7 +234,11 @@ QGroupBox* ProjectEditor::createSolverGroupBox()
     pEditLayout->addWidget(mpNumAveragesEdit, 1, 1);
     pEditLayout->addWidget(new QLabel(tr("Num. skip periods: ")), 1, 2);
     pEditLayout->addWidget(mpNumSkipPeriodsEdit, 1, 3);
-    pEditLayout->addItem(new QSpacerItem(1, 1, QSizePolicy::Expanding, QSizePolicy::Fixed), 1, 4);
+    pEditLayout->addWidget(new QLabel(tr("Max frequecy: ")), 2, 0);
+    pEditLayout->addWidget(mpMaxFreqEdit, 2, 1);
+    pEditLayout->addWidget(new QLabel(tr("Level amplitude: ")), 2, 2);
+    pEditLayout->addWidget(mpLevelAmplitudeEdit, 2, 3);
+    pEditLayout->addItem(new QSpacerItem(1, 1, QSizePolicy::Expanding, QSizePolicy::Fixed), 0, 4);
 
     // Create the control widgets
     QHBoxLayout* pControlLayout = new QHBoxLayout;
@@ -306,9 +313,8 @@ QGroupBox* ProjectEditor::createExportGroupBox()
 //! Create a file dialog for opening responses
 void ProjectEditor::openResponseDialog()
 {
-    QString const kExpectedSuffix = "vaufx";
     QString pathFile = QFileDialog::getOpenFileName(this, tr("Read Responses"), Utility::getLastDirectory(mSettings).path(),
-                                                    tr("Response file format (*%1)").arg(kExpectedSuffix));
+                                                    tr("Response file format (*.vaufx *.mat)"));
     if (pathFile.isEmpty())
         return;
 
@@ -319,9 +325,8 @@ void ProjectEditor::openResponseDialog()
 //! Create a file dialog for opening spectrums
 void ProjectEditor::openSpectrumDialog()
 {
-    QString const kExpectedSuffix = "mat";
     QString pathFile = QFileDialog::getOpenFileName(this, tr("Read Spectrums"), Utility::getLastDirectory(mSettings).path(),
-                                                    tr("Spectrum file format (*%1)").arg(kExpectedSuffix));
+                                                    tr("Spectrum file format (*.mat)"));
     if (pathFile.isEmpty())
         return;
 
@@ -346,7 +351,8 @@ void ProjectEditor::exportDialog()
         Utility::modifyFileSuffix(pathFile, kExpectedSuffix);
 
         // Save the project
-        mProject.write(pathFile);
+        if (mProject.write(pathFile))
+            qInfo() << tr("The project was saved as the following file %1").arg(pathFile);
     }
 }
 
@@ -360,6 +366,8 @@ void ProjectEditor::setOptions()
     options.numIter = mpNumIterEdit->value();
     options.numAverages = mpNumAveragesEdit->value();
     options.numSkipPeriods = mpNumSkipPeriodsEdit->value();
+    options.maxFreq = mpMaxFreqEdit->value();
+    options.levelAmplitude = mpLevelAmplitudeEdit->value();
 }
 
 //! Display project information

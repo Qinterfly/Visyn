@@ -28,8 +28,13 @@ VectorXd fillOutliers(VectorXd const& data);
 std::pair<VectorXd, VectorXd> denoiseTotalVariance(VectorXd const& data, double lambda = 1, int numIter = 10);
 
 // Roots
-VectorXd findRoots(Backend::Core::Response const& response);
-std::pair<VectorXd, VectorXd> evaluateFreqs(Backend::Core::Response const& response);
+struct Root
+{
+    double x;
+    double y;
+    int ind;
+};
+std::vector<Root> findRoots(Backend::Core::Response const& response);
 
 // Signal
 VectorXd convolve(VectorXd const& a, VectorXd const& b);

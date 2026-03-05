@@ -140,7 +140,7 @@ VectorXd fillOutliers(VectorXd const& data)
 
             // Find the next nonoutlier
             int iNext = iCurr + 1;
-            while (iNext < count && outliers[iPrev])
+            while (iNext < count && outliers[iNext])
                 ++iNext;
 
             // Interpolate
@@ -237,12 +237,11 @@ std::pair<VectorXd, VectorXd> denoiseTotalVariance(VectorXd const& data, double 
 }
 
 //! Find all the response roots
-VectorXd findRoots(Response const& response)
+std::vector<Root> findRoots(Response const& response)
 {
     auto const& values = response.realValues();
     int numValues = response.numValues();
-    VectorXd roots;
-    roots.resize(numValues);
+    std::vector<Root> roots(numValues);
     int numRoots = 0;
     for (int i = 0; i != numValues - 1; ++i)
     {
@@ -252,57 +251,15 @@ VectorXd findRoots(Response const& response)
         {
             double x1 = response.key(i);
             double x2 = response.key(i + 1);
-            double root = x1 - y1 * (x2 - x1) / (y2 - y1);
+            double xc = x1 - y1 * (x2 - x1) / (y2 - y1);
+            double yc = (xc - x1) / (x2 - x1) * (y2 - y1) + y1;
+            Root root({xc, yc, i});
             roots[numRoots] = root;
             ++numRoots;
         }
     }
-    roots.conservativeResize(numRoots);
+    roots.resize(numRoots);
     return roots;
-}
-
-//! Estimate frequencies of harmonic process using its roots
-std::pair<VectorXd, VectorXd> evaluateFreqs(Response const& response)
-{
-    // Find roots
-    VectorXd roots = findRoots(response);
-
-    // Estimate the Nyquist frequenciy
-    double nyquistFreq = response.props.sampleRate / 2.0;
-
-    // Compute frequencies
-    int numRoots = roots.size();
-    VectorXd freqs(numRoots);
-    std::vector<bool> mask(numRoots, false);
-    int numFreqs = 0;
-    for (int i = 0; i != numRoots - 1; ++i)
-    {
-        double delta = roots[i + 1] - roots[i];
-        if (delta > std::numeric_limits<double>::epsilon())
-        {
-            freqs[i] = 0.5 / delta;
-            mask[i] = true;
-        }
-        if (freqs[i] > nyquistFreq)
-            mask[i] = false;
-        if (mask[i])
-            ++numFreqs;
-    }
-
-    // Copy valid frequencies
-    VectorXd xResult(numFreqs);
-    VectorXd yResult(numFreqs);
-    numFreqs = 0;
-    for (int i = 0; i != numRoots; ++i)
-    {
-        if (mask[i])
-        {
-            xResult[numFreqs] = roots[i];
-            yResult[numFreqs] = freqs[i];
-            ++numFreqs;
-        }
-    }
-    return {xResult, yResult};
 }
 
 //! Perform full convolution

@@ -125,7 +125,8 @@ public:
     static bool write(mat_t* mat, QList<Response> const& responses, QString const& name);
 
 private:
-    static QList<Response> readTestLab(matvar_t* matVar);
+    static QList<Response> readTestLabTime(matvar_t* matVar);
+    static QList<Response> readTestLabFreq(matvar_t* matVar);
 };
 }
 

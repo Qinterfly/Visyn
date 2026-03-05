@@ -12,11 +12,14 @@ static double const skEps = std::numeric_limits<double>::epsilon();
 HarmonicOptions::HarmonicOptions()
     : iSyncResponse(-1)
     , iSyncSpectrum(-1)
-    , smoothFactor(1e-3)
+    , smoothFactor(1e-1)
     , numIter(10)
     , numAverages(3)
     , numSkipPeriods(1)
+    , maxFreq(512)
+    , levelAmplitude(0.9)
 {
+    intervals.emplaceBack(PairDouble(0, -1));
 }
 
 HarmonicSolution::HarmonicSolution()
@@ -51,25 +54,41 @@ HarmonicSolution HarmonicSolver::solve()
         qWarning() << QObject::tr("There are no responses to obtain harmonic solution");
         return solution;
     }
-
-    // Fix up synchronization channel index in time domain
     int numResponses = mResponses.size();
-    if (options.iSyncResponse < 0 || options.iSyncResponse >= numResponses)
-        options.iSyncResponse = numResponses - 1;
-    Response const& syncResponse = mResponses[options.iSyncResponse];
+    for (int i = 0; i != numResponses; ++i)
+    {
+        Response const& response = mResponses[i];
+        if (response.isComplex())
+        {
+            qWarning() << QObject::tr("The time response %1 is complex-valued and cannot be procesed").arg(response.props.name);
+            return solution;
+        }
+    }
 
-    // Fix up synchronization channel index in frequency domain
+    // Get the synchronization response in time domain
+    int iSyncResponse = options.iSyncResponse;
+    if (iSyncResponse < 0 || iSyncResponse >= numResponses)
+        iSyncResponse = numResponses - 1;
+    Response const& syncResponse = mResponses[iSyncResponse];
+
+    // Get the synchronization response in frequency domain
     Response syncSpectrum;
     int numSpectrums = refSpectrums.size();
+    int iSyncSpectrum = options.iSyncSpectrum;
     if (numSpectrums > 0)
     {
-        if (options.iSyncSpectrum < 0 || options.iSyncSpectrum >= numSpectrums)
-            options.iSyncSpectrum = numSpectrums - 1;
-        syncSpectrum = refSpectrums[options.iSyncSpectrum];
+        if (iSyncSpectrum < 0 || iSyncSpectrum >= numSpectrums)
+            iSyncSpectrum = numSpectrums - 1;
+        syncSpectrum = refSpectrums[iSyncSpectrum];
+    }
+    if (!syncSpectrum.isEmpty() && !syncSpectrum.isComplex())
+    {
+        qWarning() << QObject::tr("The reference spectrum %1 is real-valued and cannot be procesed").arg(syncSpectrum.props.name);
+        return solution;
     }
 
     // Evaluate frequencies
-    auto [xFreqs, yFreqs] = Utility::evaluateFreqs(syncResponse);
+    auto [xFreqs, yFreqs] = evaluateFreqs(syncResponse);
 
     // Remove outliers from frequencies and fill them linearly
     yFreqs = Utility::fillOutliers(yFreqs);
@@ -96,6 +115,64 @@ HarmonicSolution HarmonicSolver::solve()
     return solution;
 }
 
+//! Estimate frequencies of harmonic process using its roots
+QPair<VectorXd, VectorXd> HarmonicSolver::evaluateFreqs(Response const& response)
+{
+    // Find roots
+    auto roots = Utility::findRoots(response);
+
+    // Estimate the maximum frequency
+    double maxFreq = options.maxFreq;
+    if (maxFreq < skEps)
+        maxFreq = response.props.sampleRate / 2.0;
+
+    // Determine the maximum amplitude
+    VectorXd const& yData = response.realValues();
+    double maxAmplitude = yData.cwiseAbs().maxCoeff();
+    double limitAmplitude = options.levelAmplitude * maxAmplitude;
+
+    // Compute frequencies
+    int numRoots = roots.size();
+    VectorXd freqs(numRoots);
+    QList<bool> mask(numRoots, false);
+    int numFreqs = 0;
+    for (int iRoot = 0; iRoot != numRoots - 1; ++iRoot)
+    {
+        auto currRoot = roots[iRoot];
+        auto nextRoot = roots[iRoot + 1];
+        double delta = nextRoot.x - currRoot.x;
+        double amplitude = 0.0;
+        for (int iData = currRoot.ind; iData != nextRoot.ind; ++iData)
+            amplitude = std::max(amplitude, abs(yData[iData]));
+        if (delta > skEps)
+        {
+            freqs[iRoot] = 0.5 / delta;
+            mask[iRoot] = true;
+        }
+        if (freqs[iRoot] > maxFreq)
+            mask[iRoot] = false;
+        if (limitAmplitude > skEps && amplitude < limitAmplitude)
+            mask[iRoot] = false;
+        if (mask[iRoot])
+            ++numFreqs;
+    }
+
+    // Copy valid frequencies
+    VectorXd xResult(numFreqs);
+    VectorXd yResult(numFreqs);
+    numFreqs = 0;
+    for (int i = 0; i != numRoots; ++i)
+    {
+        if (mask[i])
+        {
+            xResult[numFreqs] = roots[i].x;
+            yResult[numFreqs] = freqs[i];
+            ++numFreqs;
+        }
+    }
+    return {xResult, yResult};
+}
+
 //! Build up the segments out of the edges
 QList<Segment> HarmonicSolver::createSegments(VectorXi const& edges, VectorXd const& xFreqs, VectorXd const& yFreqs,
                                               Response const& response) const
@@ -106,20 +183,40 @@ QList<Segment> HarmonicSolver::createSegments(VectorXi const& edges, VectorXd co
     indices << 0, edges, yFreqs.size() - 1;
 
     // Build up the segments
-    int numSegments = numIndices - 1;
-    QList<Segment> segments(numSegments);
-    for (int i = 0; i != numSegments; ++i)
+    QList<Segment> segments(numIndices - 1);
+    int numSegments = 0;
+    int iStart = indices[0];
+    for (int i = 0; i != numIndices - 1; ++i)
     {
-        Segment segment;
-        int iStart = indices[i];
+        // Get boundary values
         int iEnd = indices[i + 1];
         double xStart = xFreqs[iStart];
         double xEnd = xFreqs[iEnd];
+
+        // Create the segment
+        Segment segment;
         segment.indices = {response.index(xStart), response.index(xEnd)};
         segment.keys = {xStart, xEnd};
         segment.freq = Utility::median(yFreqs(seq(iStart, iEnd)));
-        segments[i] = segment;
+
+        // Discard segments which do not contain one period
+        if (segment.freq > skEps)
+        {
+            double period = 1.0 / segment.freq;
+            double requestPeriod = period * (options.numAverages + options.numSkipPeriods);
+            if (requestPeriod > xEnd - xStart)
+                continue;
+        }
+
+        // Insert the new segment
+        segments[numSegments] = segment;
+
+        // Increase counters
+        iStart = iEnd;
+        ++numSegments;
     }
+    segments.resize(numSegments);
+
     return segments;
 }
 
@@ -168,7 +265,7 @@ QList<Response> HarmonicSolver::computeSpectrums(Response const& syncResponse, R
         countAverages.fill(0);
         for (int iPeriod = 0; iPeriod != options.numAverages; ++iPeriod)
         {
-            if (iCurrStart < iSegmentStart || iCurrEnd < iSegmentStart)
+            if (iCurrStart < iSegmentStart || iCurrEnd < iSegmentStart || iCurrStart == iCurrEnd)
                 break;
 
             // Slice sync data

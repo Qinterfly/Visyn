@@ -42,8 +42,7 @@ private:
     // Content
     void createContent();
     void createConnections();
-    QGroupBox* createResponseGroupBox();
-    QGroupBox* createSpectrumGroupBox();
+    QGroupBox* createInputGroupBox();
     QGroupBox* createSolverGroupBox();
     QGroupBox* createInfoGroupBox();
     QGroupBox* createExportGroupBox();
@@ -72,6 +71,8 @@ private:
     Edit1i* mpNumIterEdit;
     Edit1i* mpNumAveragesEdit;
     Edit1i* mpNumSkipPeriodsEdit;
+    Edit1d* mpMaxFreqEdit;
+    Edit1d* mpLevelAmplitudeEdit;
     QPlainTextEdit* mpInfoEdit;
     QComboBox* mpExportComboBox;
 };

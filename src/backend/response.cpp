@@ -9,6 +9,7 @@ using namespace Backend::Core;
 
 // Helper function
 QString getMatStringData(matvar_t* matVar);
+QStringList getMatStringsData(matvar_t* matVar);
 MatrixXd getMatDoubleData(matvar_t* matVar);
 MatrixXcd getMatComplexData(matvar_t* matVar);
 matvar_t* createVariable(double value);
@@ -298,16 +299,29 @@ QList<Response> ResponseIO::read(Visom::VaufxFile& file)
 QList<Response> ResponseIO::read(mat_t* mat)
 {
     QList<Response> result;
-    matvar_t* matVar = Mat_VarReadNext(mat);
-    if (!matVar)
-        return result;
 
-    // Read TestLab spectrums
-    if (matVar->class_type == MAT_C_STRUCT && QString(matVar->name) == "FrequencySpectrum")
-        result = readTestLab(matVar);
+    // Process all variables
+    while (matvar_t* matVar = Mat_VarReadNext(mat))
+    {
+        if (!matVar)
+            return result;
 
-    // Clean up
-    Mat_VarFree(matVar);
+        // Read TestLab files
+        QString name = matVar->name;
+        if (matVar->class_type == MAT_C_STRUCT)
+        {
+            QList<Response> responses;
+            if (name.contains("Signal"))
+                responses = readTestLabTime(matVar);
+            else
+                responses = readTestLabFreq(matVar);
+            if (!responses.isEmpty())
+                result.append(std::move(responses));
+        }
+
+        // Clean up
+        Mat_VarFree(matVar);
+    }
 
     return result;
 }
@@ -351,36 +365,80 @@ bool ResponseIO::write(mat_t* mat, QList<Response> const& responses, QString con
     return true;
 }
 
-//! Read responses from a TestLab formatted .mat file
-QList<Response> ResponseIO::readTestLab(matvar_t* matVar)
+//! Read spectrums from a TestLab formatted .mat file
+QList<Response> ResponseIO::readTestLabTime(matvar_t* matVar)
 {
+    QList<Response> nullResult;
+
     // Read xValues
     matvar_t* matX = Mat_VarGetStructFieldByName(matVar, "x_values", 0);
-    matvar_t* matXValues = Mat_VarGetStructFieldByName(matX, "values", 0);
-    MatrixXd xValues = getMatDoubleData(matXValues);
-    int numResponses = xValues.cols();
+    if (!matX)
+        return nullResult;
+    matvar_t* matXStartValue = Mat_VarGetStructFieldByName(matX, "start_value", 0);
+    matvar_t* matXIncrement = Mat_VarGetStructFieldByName(matX, "increment", 0);
+    matvar_t* matXNumValues = Mat_VarGetStructFieldByName(matX, "number_of_values", 0);
+    double xStart = getMatDoubleData(matXStartValue)(0);
+    double xStep = getMatDoubleData(matXIncrement)(0);
+    int numValues = getMatDoubleData(matXNumValues)(0);
+    VectorXd xValues = VectorXd::LinSpaced(numValues, xStart, xStart + (numValues - 1) * xStep);
+    double sampleRate = xStep > std::numeric_limits<double>::epsilon() ? 1.0 / xStep : 0.0;
 
     // Read yValues
     matvar_t* matY = Mat_VarGetStructFieldByName(matVar, "y_values", 0);
+    if (!matY)
+        return nullResult;
+    matvar_t* matYValues = Mat_VarGetStructFieldByName(matY, "values", 0);
+    MatrixXd yValues = getMatDoubleData(matYValues);
+    int numResponses = yValues.cols();
+
+    // Read info
+    matvar_t* matRecord = Mat_VarGetStructFieldByName(matVar, "function_record", 0);
+    matvar_t* matName = Mat_VarGetStructFieldByName(matRecord, "name", 0);
+    QList<QString> names = getMatStringsData(matName);
+
+    // Build up responses
+    QList<Response> result(numResponses);
+    for (int i = 0; i != numResponses; ++i)
+    {
+        Response& response = result[i];
+        VectorXd const& keys = xValues;
+        VectorXd values = yValues(indexing::all, i);
+        response.setKeys(keys);
+        response.setValues(values);
+        response.props.name = names[i];
+        response.props.domain = Domain::kTime;
+        response.props.sampleRate = sampleRate;
+    }
+
+    return result;
+}
+
+//! Read time responses from a TestLab formatted .mat file
+QList<Response> ResponseIO::readTestLabFreq(matvar_t* matVar)
+{
+    QList<Response> nullResult;
+
+    // Read xValues
+    matvar_t* matX = Mat_VarGetStructFieldByName(matVar, "x_values", 0);
+    if (!matX)
+        return nullResult;
+    matvar_t* matXValues = Mat_VarGetStructFieldByName(matX, "values", 0);
+    MatrixXd xValues = getMatDoubleData(matXValues);
+
+    // Read yValues
+    matvar_t* matY = Mat_VarGetStructFieldByName(matVar, "y_values", 0);
+    if (!matY)
+        return nullResult;
     matvar_t* matYValues = Mat_VarGetStructFieldByName(matY, "values", 0);
     MatrixXcd yValues = getMatComplexData(matYValues);
 
     // Read info
     matvar_t* matRecord = Mat_VarGetStructFieldByName(matVar, "function_record", 0);
     matvar_t* matName = Mat_VarGetStructFieldByName(matRecord, "name", 0);
-    QList<QString> names(numResponses);
-    if (matName->class_type == MAT_C_CELL)
-    {
-        matvar_t** cellsName = (matvar_t**) matName->data;
-        for (int i = 0; i != numResponses; ++i)
-            names[i] = getMatStringData(cellsName[i]);
-    }
-    else if (matName->class_type == MAT_C_CHAR)
-    {
-        names = {getMatStringData(matName)};
-    }
+    QList<QString> names = getMatStringsData(matName);
 
     // Build up responses
+    int numResponses = yValues.cols();
     QList<Response> result(numResponses);
     for (int i = 0; i != numResponses; ++i)
     {
@@ -396,13 +454,38 @@ QList<Response> ResponseIO::readTestLab(matvar_t* matVar)
     return result;
 }
 
-//! Helper function to get a string array from a mat variable
+//! Helper function to get a string from a mat variable
 QString getMatStringData(matvar_t* matVar)
 {
     size_t length = matVar->nbytes / matVar->data_size;
     auto data = (char*) matVar->data;
     std::string text(data, length);
     return QString::fromStdString(text);
+}
+
+//! Helper function to get a string array from a mat variable
+QStringList getMatStringsData(matvar_t* matVar)
+{
+    QList<QString> result;
+    if (matVar->class_type == MAT_C_CELL)
+    {
+        // Count the number of strings to read
+        size_t rank = matVar->rank;
+        size_t numResult = 1;
+        for (size_t i = 0; i != rank; ++i)
+            numResult *= matVar->dims[i];
+        result.resize(numResult);
+
+        // Read all the strings
+        matvar_t** cellsName = (matvar_t**) matVar->data;
+        for (int i = 0; i != numResult; ++i)
+            result[i] = getMatStringData(cellsName[i]);
+    }
+    else if (matVar->class_type == MAT_C_CHAR)
+    {
+        result = {getMatStringData(matVar)};
+    }
+    return result;
 }
 
 //! Helper function to get a double array from a mat variable

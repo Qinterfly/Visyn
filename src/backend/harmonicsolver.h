@@ -28,6 +28,9 @@ struct HarmonicOptions
     int numIter;
     int numAverages;
     int numSkipPeriods;
+    double maxFreq;
+    double levelAmplitude;
+    QList<PairDouble> intervals;
 };
 
 struct HarmonicSolution
@@ -58,6 +61,7 @@ public:
     QList<Response> refSpectrums;
 
 private:
+    QPair<VectorXd, VectorXd> evaluateFreqs(Backend::Core::Response const& response);
     QList<Segment> createSegments(VectorXi const& edges, VectorXd const& xFreqs, VectorXd const& yFreqs, Response const& response) const;
     QList<Response> computeSpectrums(Response const& syncResponse, Response const& syncSpectrum, QList<Segment> const& segments) const;
 
