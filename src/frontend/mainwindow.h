@@ -23,10 +23,6 @@ public:
     MainWindow(QWidget* pParent = nullptr, bool isRestore = true);
     virtual ~MainWindow();
 
-    // File interaction
-    void newProject();
-    void saveAsProject(QString const& pathFile);
-
     // Objects
     Backend::Core::Project& project();
 
@@ -43,7 +39,6 @@ private:
 
     // Content
     void createContent();
-    void createFileActions();
     void createLanguageActions();
     void createHelpActions();
     void createConnections();
@@ -61,7 +56,6 @@ private:
     void restoreSettings();
 
     // Dialogs
-    void saveAsProjectDialog();
     void about();
 
     // Slots

@@ -40,27 +40,6 @@ MainWindow::~MainWindow()
 {
 }
 
-//! Close the current project and create a new one
-void MainWindow::newProject()
-{
-    mProject = Core::Project();
-    qInfo() << tr("New project was created");
-    setModified(false);
-    mpProjectEditor->refresh();
-    mpViewManager->plot();
-}
-
-//! Save the project using the path specified
-void MainWindow::saveAsProject(QString const& pathFile)
-{
-    if (mProject.write(pathFile))
-    {
-        qInfo() << tr("The project was saved as the following file %1").arg(pathFile);
-        setModified(false);
-        Utility::setLastPathFile(mSettings, pathFile);
-    }
-}
-
 //! Obtain the current project instance
 Core::Project& MainWindow::project()
 {
@@ -92,7 +71,6 @@ void MainWindow::initializeWindow()
 void MainWindow::createContent()
 {
     // Top widgets
-    createFileActions();
     createLanguageActions();
     createHelpActions();
 
@@ -115,39 +93,6 @@ void MainWindow::createConnections()
     // Project editor
     connect(mpProjectEditor, &ProjectEditor::edited, this, &MainWindow::processEdited);
     connect(mpProjectEditor, &ProjectEditor::requestPlot, mpViewManager, &ViewManager::plot);
-}
-
-//! Create the actions to interact with files
-void MainWindow::createFileActions()
-{
-    // Create the actions
-    QAction* pNewAction = new QAction(tr("&New Project"), this);
-    QAction* pSaveAsAction = new QAction(tr("&Save As..."), this);
-    QAction* pExitAction = new QAction(tr("E&xit"), this);
-
-    // Set the icons
-    pNewAction->setIcon(QIcon(":/icons/document-new.svg"));
-    pSaveAsAction->setIcon(QIcon(":/icons/document-save-as.svg"));
-
-    // Set the shortcuts
-    pNewAction->setShortcut(QKeySequence::New);
-    pSaveAsAction->setShortcut(QKeySequence::SaveAs);
-    pExitAction->setShortcut(QKeySequence::Quit);
-
-    // Connect the actions
-    connect(pNewAction, &QAction::triggered, this, &MainWindow::newProject);
-    connect(pSaveAsAction, &QAction::triggered, this, &MainWindow::saveAsProjectDialog);
-    connect(pExitAction, &QAction::triggered, qApp, &QApplication::quit);
-
-    // Create the menu
-    QMenu* pMenu = new QMenu(tr("&File"), this);
-    pMenu->setFont(font());
-
-    // Fill up the menu
-    pMenu->addAction(pNewAction);
-    pMenu->addAction(pSaveAsAction);
-    pMenu->addAction(pExitAction);
-    menuBar()->addMenu(pMenu);
 }
 
 //! Create the action to change the application language
@@ -363,23 +308,6 @@ void MainWindow::restoreSettings()
             qInfo() << tr("Settings were restored from the file %1").arg(Constants::Settings::skFileName);
     }
     mSettings.endGroup();
-}
-
-//! Save the project using the file dialog
-void MainWindow::saveAsProjectDialog()
-{
-    static QString const kExpectedSuffix = "mat";
-
-    QString pathFile = QFileDialog::getSaveFileName(this, tr("Save Project"), Utility::getLastDirectory(mSettings).path(),
-                                                    tr("Project file format (*%1)").arg(kExpectedSuffix));
-    if (pathFile.isEmpty())
-        return;
-
-    // Modify the suffix, if necessary
-    Utility::modifyFileSuffix(pathFile, kExpectedSuffix);
-
-    // Save the project
-    saveAsProject(pathFile);
 }
 
 //! Show information about the program

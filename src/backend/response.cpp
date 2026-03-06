@@ -17,6 +17,8 @@ matvar_t* createVariable(QString const& value);
 matvar_t* createVariable(VectorXd const& data);
 matvar_t* createVariable(VectorXcd const& data);
 
+static double const skEps = std::numeric_limits<double>::epsilon();
+
 ResponseProperties::ResponseProperties()
     : id(0)
     , direction(Direction::kNone)
@@ -137,11 +139,26 @@ int Response::index(double key) const
 
 double Response::key(int iSample) const
 {
-    if (numKeys() > 0 && iSample < mKeys.size())
-        return mKeys[iSample];
-    if (iSample < numValues() && props.sampleRate > std::numeric_limits<double>::epsilon())
-        return 1.0 / props.sampleRate * iSample;
+    if (iSample < 0)
+        iSample = numValues() - 1;
+    if (iSample >= 0)
+    {
+        if (numKeys() > 0 && iSample < mKeys.size())
+            return mKeys[iSample];
+        if (iSample < numValues() && props.sampleRate > skEps)
+            return 1.0 / props.sampleRate * iSample;
+    }
     return std::nan("0");
+}
+
+double Response::startKey() const
+{
+    return key(0);
+}
+
+double Response::endKey() const
+{
+    return key(numValues() - 1);
 }
 
 int Response::numKeys() const
@@ -229,6 +246,10 @@ QList<Response> ResponseIO::read(QString const& pathFile)
     {
         qWarning() << QObject::tr("The file %1 has unknown suffix. Could not read responses").arg(pathFile);
     }
+
+    // Store the path
+    for (Response& response : responses)
+        response.props.path = pathFile;
 
     return responses;
 }
@@ -381,7 +402,7 @@ QList<Response> ResponseIO::readTestLabTime(matvar_t* matVar)
     double xStep = getMatDoubleData(matXIncrement)(0);
     int numValues = getMatDoubleData(matXNumValues)(0);
     VectorXd xValues = VectorXd::LinSpaced(numValues, xStart, xStart + (numValues - 1) * xStep);
-    double sampleRate = xStep > std::numeric_limits<double>::epsilon() ? 1.0 / xStep : 0.0;
+    double sampleRate = xStep > skEps ? 1.0 / xStep : 0.0;
 
     // Read yValues
     matvar_t* matY = Mat_VarGetStructFieldByName(matVar, "y_values", 0);
@@ -405,6 +426,7 @@ QList<Response> ResponseIO::readTestLabTime(matvar_t* matVar)
         VectorXd values = yValues(indexing::all, i);
         response.setKeys(keys);
         response.setValues(values);
+        response.props.id = i;
         response.props.name = names[i];
         response.props.domain = Domain::kTime;
         response.props.sampleRate = sampleRate;
@@ -447,6 +469,7 @@ QList<Response> ResponseIO::readTestLabFreq(matvar_t* matVar)
         VectorXcd values = yValues(indexing::all, i);
         response.setKeys(keys);
         response.setValues(values);
+        response.props.id = i;
         response.props.name = names[i];
         response.props.domain = Domain::kFreq;
     }

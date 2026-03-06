@@ -63,16 +63,16 @@ void TestBackend::testStatistics()
 void TestBackend::testSegments()
 {
     double const precision = 1e-3;
+    QString group = "example";
     QString record = "test2";
-    QString dir = "example";
-    QString pathFile = Utility::combineFilePath(INPUT_DIR, dir, record + ".mat");
+    QString pathFile = Utility::combineFilePath(INPUT_DIR, group, record + ".mat");
 
     // Read the response
     auto response = readTestResponse(pathFile);
     QVERIFY(!response.isEmpty());
 
     // Perform the solution
-    QList<Core::Response> responses = {response};
+    QList<Response> responses = {response};
     HarmonicSolver solver(responses);
     solver.options.smoothFactor = 1.0;
     solver.options.numIter = 10;
@@ -92,10 +92,10 @@ void TestBackend::testSegments()
 //! Use harmonic solver to compute harmonic responses for "assess" record
 void TestBackend::testHarmonicAssess()
 {
+    QString group = "assess";
     QString record = "test1";
-    QString dir = "assess";
-    QString pathFileResponses = Utility::combineFilePath(INPUT_DIR, dir, record + ".vaufx");
-    QString pathFileRefSpectrums = Utility::combineFilePath(INPUT_DIR, dir, record + ".mat");
+    QString pathFileResponses = Utility::combineFilePath(INPUT_DIR, group, record + ".vaufx");
+    QString pathFileRefSpectrums = Utility::combineFilePath(INPUT_DIR, group, record + ".mat");
 
     // Read the responses
     QList<Response> responses = ResponseIO::read(pathFileResponses);
@@ -108,6 +108,7 @@ void TestBackend::testHarmonicAssess()
     solver.options.smoothFactor = 1e-1;
     solver.options.numIter = 10;
     solver.options.numAverages = 3;
+    solver.options.intervals = {{0, 300}};
     solver.refSpectrums = refSpectrums;
     HarmonicSolution solution = solver.solve();
 
@@ -118,10 +119,10 @@ void TestBackend::testHarmonicAssess()
 //! Use harmonic solver to compute harmonic responses for "try" record
 void TestBackend::testHarmonicTry()
 {
+    QString group = "try";
     QString record = "try3";
-    QString dir = "try";
-    QString pathFileResponses = Utility::combineFilePath(INPUT_DIR, dir, record + ".vaufx");
-    QString pathFileRefSpectrums = Utility::combineFilePath(INPUT_DIR, dir, record + ".mat");
+    QString pathFileResponses = Utility::combineFilePath(INPUT_DIR, group, record + ".vaufx");
+    QString pathFileRefSpectrums = Utility::combineFilePath(INPUT_DIR, group, record + ".mat");
 
     // Read the responses
     QList<Response> responses = ResponseIO::read(pathFileResponses);

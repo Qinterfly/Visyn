@@ -54,6 +54,9 @@ void ViewManager::plot()
 //! Create all the widgets and corresponding actions
 void ViewManager::createContent()
 {
+    // Constants
+    static const QList<PairDouble> freqIntervals = {};
+
     // Create the tab widget
     mpTabWidget = new CustomTabWidget;
     mpTabWidget->setTabsClosable(false);
@@ -64,10 +67,10 @@ void ViewManager::createContent()
     auto freqOptions = ResponseView::Options(ResponseView::kImag, ResponseView::kReal);
 
     // Create the views
-    mpResponseView = new ResponseView(mProject.responses, timeOptions);
-    mpRefSpectrumView = new ResponseView(mProject.spectrums, freqOptions);
+    mpResponseView = new ResponseView(mProject.responses, mProject.options.intervals, timeOptions);
+    mpRefSpectrumView = new ResponseView(mProject.spectrums, freqIntervals, freqOptions);
     mpSegmentView = new SegmentView(mProject.solution);
-    mpResSpectrumView = new ResponseView(mProject.solution.spectrums, freqOptions);
+    mpResSpectrumView = new ResponseView(mProject.solution.spectrums, freqIntervals, freqOptions);
 
     // Add the views
     mpTabWidget->addTab(mpResponseView, QIcon(), tr("Time Responses"));
@@ -98,8 +101,9 @@ ResponseView::Options::Options(Type uUpType, Type uDownType)
     downType = uDownType;
 }
 
-ResponseView::ResponseView(QList<Response> const& responses, Options const& options)
+ResponseView::ResponseView(QList<Response> const& responses, QList<PairDouble> const& intervals, Options const& options)
     : mResponses(responses)
+    , mIntervals(intervals)
     , mOptions(options)
 {
     setFont(Utility::getFont());
@@ -189,12 +193,12 @@ void ResponseView::plot()
 {
     clear();
     refresh();
-    draw(mOptions.upType, mpUpPlot);
-    draw(mOptions.downType, mpDownPlot);
+    drawAll(mOptions.upType, mpUpPlot);
+    drawAll(mOptions.downType, mpDownPlot);
 }
 
 //! Render the view of the specified type
-void ResponseView::draw(Type type, CustomPlot* pPlot)
+void ResponseView::drawAll(Type type, CustomPlot* pPlot)
 {
     // Set the visibility
     pPlot->setVisible(type != kNone);
@@ -207,7 +211,49 @@ void ResponseView::draw(Type type, CustomPlot* pPlot)
         return;
     }
 
-    // Process all the responses
+    // Draw the responses
+    drawResponses(type, pPlot);
+
+    // Draw the intervals
+    if (mOptions.showIntervals)
+    {
+        pPlot->rescaleAxes();
+        drawIntervals(pPlot);
+    }
+
+    // Set the labels
+    QString title;
+    QString xLabel = mResponses.first().isComplex() ? tr("Frequency, Hz") : tr("Time, s");
+    QString yLabel = tr("Acceleration, m/s%1").arg(QChar(0x00B2));
+    switch (type)
+    {
+    case kReal:
+        title = "Re";
+        break;
+    case kImag:
+        title = "Im";
+        break;
+    case kAmplitude:
+        title = "A";
+        break;
+    case kPhase:
+        title = "φ";
+        break;
+    default:
+        break;
+    }
+    pPlot->xAxis->setLabel(xLabel);
+    pPlot->yAxis->setLabel(yLabel);
+    pPlot->setTitle(title);
+
+    // Replot
+    pPlot->rescaleAxes();
+    pPlot->replot();
+}
+
+//! Draw all the responses
+void ResponseView::drawResponses(Type type, CustomPlot* pPlot)
+{
     QList<QColor> const colors = Constants::Colors::skStandardColors;
     int numResponses = mResponses.size();
     int numColors = colors.size();
@@ -255,35 +301,49 @@ void ResponseView::draw(Type type, CustomPlot* pPlot)
         int iColor = Utility::getRepeatedIndex(iResponse, numColors);
         createGraph(pPlot, keys, values, colors[iColor], response.props.name);
     }
+}
 
-    // Set the labels
-    QString title;
-    QString xLabel = mResponses.first().isComplex() ? tr("Frequency, Hz") : tr("Time, s");
-    QString yLabel = tr("Acceleration, m/s%1").arg(QChar(0x00B2));
-    switch (type)
+//! Draw key intervals
+void ResponseView::drawIntervals(CustomPlot* pPlot)
+{
+    // Constants
+    uint const kWidth = 1;
+    int const kBrushAlpha = 20;
+    QColor const kColor("blue");
+
+    // Construct the style
+    QPen pen(kColor);
+    pen.setStyle(Qt::DotLine);
+    pen.setWidth(kWidth);
+    QBrush brush(QColor(kColor.red(), kColor.green(), kColor.blue(), kBrushAlpha));
+
+    int numIntervals = mIntervals.size();
+    QCPRange xRange = pPlot->xAxis->range();
+    QCPRange yRange = pPlot->yAxis->range();
+    for (int iInterval = 0; iInterval != numIntervals; ++iInterval)
     {
-    case kReal:
-        title = "Re";
-        break;
-    case kImag:
-        title = "Im";
-        break;
-    case kAmplitude:
-        title = "A";
-        break;
-    case kPhase:
-        title = "φ";
-        break;
-    default:
-        break;
-    }
-    pPlot->xAxis->setLabel(xLabel);
-    pPlot->yAxis->setLabel(yLabel);
-    pPlot->setTitle(title);
+        PairDouble const& interval = mIntervals[iInterval];
+        double xStart = interval.first;
+        double xEnd = interval.second;
+        if (xStart < 0.0)
+            xStart = xRange.lower;
+        if (xEnd < 0.0)
+            xEnd = xRange.upper;
+        if (std::abs(xEnd - xStart) <= std::numeric_limits<double>::epsilon())
+            continue;
 
-    // Replot
-    pPlot->rescaleAxes();
-    pPlot->replot();
+        // Create the curve and specify its style
+        QCPCurve* pCurve = new QCPCurve(pPlot->xAxis, pPlot->yAxis);
+        pCurve->setPen(pen);
+        pCurve->setBrush(brush);
+
+        // Make the rectangle based on the segment boundaries
+        pCurve->addData(xStart, yRange.lower);
+        pCurve->addData(xStart, yRange.upper);
+        pCurve->addData(xEnd, yRange.upper);
+        pCurve->addData(xEnd, yRange.lower);
+        pCurve->addData(xStart, yRange.lower);
+    }
 }
 
 //! Update all the options

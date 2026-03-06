@@ -16,8 +16,11 @@ CustomStatusBar::CustomStatusBar(QWidget* pParent)
 void CustomStatusBar::createContent()
 {
     // Create the label
+    mpIconLabel = new QLabel;
     mpMessageLabel = new QLabel;
     mpMessageLabel->setWordWrap(true);
+    mpIconLabel->setFixedWidth(height() / 2);
+    addPermanentWidget(mpIconLabel, 0);
     addPermanentWidget(mpMessageLabel, 1);
 
     // Create the timer
@@ -30,6 +33,7 @@ void CustomStatusBar::createConnections()
     connect(mpTimer, &QTimer::timeout, this,
             [this]()
             {
+                mpIconLabel->clear();
                 mpMessageLabel->clear();
                 mpTimer->stop();
             });
@@ -51,23 +55,23 @@ void CustomStatusBar::showMessage(QtMsgType type, QString const& message, int ti
     filterMessage.truncate(kMaxLength);
 
     // Determine the message color
-    QColor color;
+    QIcon icon;
     switch (type)
     {
     case QtDebugMsg:
-        color = QColor("gray");
+        icon = QIcon(":/icons/dialog-debug.svg");
         break;
     case QtInfoMsg:
-        color = QColor("white");
+        icon = QIcon(":/icons/dialog-info.svg");
         break;
     case QtWarningMsg:
-        color = QColor("orange");
+        icon = QIcon(":/icons/dialog-warning.svg");
         break;
     case QtCriticalMsg:
-        color = QColor("red");
+        icon = QIcon(":/icons/dialog-error.svg");
         break;
     case QtFatalMsg:
-        color = QColor("darkred");
+        icon = QIcon(":/icons/dialog-fatal.svg");
         break;
     }
 
@@ -78,7 +82,8 @@ void CustomStatusBar::showMessage(QtMsgType type, QString const& message, int ti
     // Set the message
     try
     {
-        mpMessageLabel->setPalette(QPalette(color));
+        QPixmap pixmap = icon.pixmap(QSize(mpIconLabel->size()));
+        mpIconLabel->setPixmap(pixmap);
         mpMessageLabel->setText(filterMessage);
     }
     catch (...)

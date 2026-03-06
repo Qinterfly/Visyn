@@ -3,6 +3,8 @@
 
 #include <QWidget>
 
+#include "aliasdata.h"
+
 QT_FORWARD_DECLARE_CLASS(QComboBox)
 QT_FORWARD_DECLARE_CLASS(QListWidget)
 
@@ -75,8 +77,10 @@ public:
         Type downType;
         QList<int> indicesSelected;
         QList<QColor> colors;
+        bool showIntervals;
     };
-    ResponseView(QList<Backend::Core::Response> const& responses, Options const& options = Options());
+    ResponseView(QList<Backend::Core::Response> const& responses, QList<Backend::Core::PairDouble> const& intervals,
+                 Options const& options = Options());
     virtual ~ResponseView() = default;
 
     void clear();
@@ -89,7 +93,9 @@ private:
     void createConnections();
 
     // Render
-    void draw(Type type, CustomPlot* pPlot);
+    void drawAll(Type type, CustomPlot* pPlot);
+    void drawResponses(Type type, CustomPlot* pPlot);
+    void drawIntervals(CustomPlot* pPlot);
 
     // Slots
     void setOptions();
@@ -99,6 +105,7 @@ private:
 
 private:
     QList<Backend::Core::Response> const& mResponses;
+    QList<Backend::Core::PairDouble> const& mIntervals;
     Options mOptions;
 
     // Widgets

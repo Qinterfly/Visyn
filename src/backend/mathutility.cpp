@@ -27,8 +27,12 @@ double mean(Eigen::VectorXd const& data)
 }
 
 //! Compute a median value
-double median(Eigen::VectorXd const& data)
+double median(VectorXd const& data)
 {
+    if (data.size() == 0)
+        return 0.0;
+    if (data.size() == 1)
+        return data[0];
     Eigen::VectorXd series = data;
     std::sort(series.data(), series.data() + series.size());
     int count = series.size();
@@ -176,6 +180,8 @@ std::pair<VectorXd, VectorXd> denoiseTotalVariance(VectorXd const& data, double 
     // Get dimensions
     int N = y.size();
     int M = N - 1;
+    if (N <= 1)
+        return {y, {}};
 
     // Precompute first differences
     VectorXd Dy(M);

@@ -22,6 +22,10 @@ EdgeDetector::EdgeDetector(VectorXd const& data)
 //! Find all the edges of the response
 VectorXi EdgeDetector::detect()
 {
+    // Sanity check
+    if (mData.size() <= 1)
+        return {};
+
     // Create the derivative scale space
     // minima and maxima of the derivative correspond to transitions
     std::vector<VectorXd> dData = createGaussScaleSpace();

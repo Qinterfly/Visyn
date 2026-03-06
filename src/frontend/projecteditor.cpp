@@ -2,12 +2,14 @@
 #include <QFileDialog>
 #include <QGroupBox>
 #include <QHBoxLayout>
+#include <QHeaderView>
 #include <QLabel>
 #include <QLineEdit>
 #include <QPlainTextEdit>
 #include <QPushButton>
 
 #include "customlineedit.h"
+#include "customtable.h"
 #include "mathutility.h"
 #include "project.h"
 #include "projecteditor.h"
@@ -82,6 +84,19 @@ void ProjectEditor::solve()
         qInfo() << tr("Harmonic solver finished successfully");
     refresh();
     emit requestPlot();
+}
+
+//! Show the editor of intervals
+void ProjectEditor::showIntervalEditor()
+{
+    IntervalEditor* pEditor = new IntervalEditor(mProject.options.intervals);
+    Utility::showAsDialog(pEditor, tr("Interval Editor"), this);
+    connect(pEditor, &IntervalEditor::edited, this,
+            [this]()
+            {
+                refresh();
+                emit requestPlot();
+            });
 }
 
 //! Update the widget state
@@ -243,8 +258,11 @@ QGroupBox* ProjectEditor::createSolverGroupBox()
     // Create the control widgets
     QHBoxLayout* pControlLayout = new QHBoxLayout;
     QPushButton* pSolveButton = new QPushButton(QIcon(":/icons/solve.svg"), tr("Solve"));
+    QPushButton* pIntervalButton = new QPushButton(QIcon(":/icons/interval.svg"), tr("Intervals"));
     connect(pSolveButton, &QPushButton::clicked, this, &ProjectEditor::solve);
+    connect(pIntervalButton, &QPushButton::clicked, this, &ProjectEditor::showIntervalEditor);
     pControlLayout->addWidget(pSolveButton);
+    pControlLayout->addWidget(pIntervalButton);
     pControlLayout->addStretch();
 
     // Combine all the widgets
@@ -417,4 +435,98 @@ void ProjectEditor::setInfo()
         mpInfoEdit->appendPlainText(tr("-> Frequency range: %1 - %2 Hz").arg(minFreq, 0, 'f', 2).arg(maxFreq, 0, 'f', 2));
         mpInfoEdit->appendPlainText(tr("-> Frequency step: %1 Hz").arg(stepFreq, 0, 'g', 3));
     }
+}
+
+IntervalEditor::IntervalEditor(QList<PairDouble>& intervals, QWidget* pParent)
+    : QWidget(pParent)
+    , mIntervals(intervals)
+{
+    createContent();
+    createConnections();
+    refresh();
+};
+
+QSize IntervalEditor::sizeHint() const
+{
+    return QSize(300, 400);
+}
+
+//! Update the state of the widgets
+void IntervalEditor::refresh()
+{
+    // Block the signals
+    QSignalBlocker blockerCount(mpCountEdit);
+    QSignalBlocker blockerDataTable(mpDataTable);
+
+    // Set the number of intervals
+    int count = mIntervals.size();
+    mpCountEdit->setValue(count);
+
+    // Set the interval data
+    mpDataTable->clear();
+    mpDataTable->setRowCount(count);
+    mpDataTable->setColumnCount(2);
+    mpDataTable->setHorizontalHeaderLabels({tr("Start, s"), tr("End, s")});
+    for (int i = 0; i != count; ++i)
+    {
+        PairDouble const& interval = mIntervals[i];
+        mpDataTable->setItem(i, 0, Utility::createTableItem(interval.first));
+        mpDataTable->setItem(i, 1, Utility::createTableItem(interval.second));
+    }
+}
+
+//! Create all the widgets
+void IntervalEditor::createContent()
+{
+    // Create widgets
+    mpCountEdit = new Edit1i;
+    mpDataTable = new CustomTable;
+
+    // Initialize widgets
+    mpCountEdit->setMinimum(0);
+    mpDataTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+
+    // Combine the widgets
+    QHBoxLayout* pControlLayout = new QHBoxLayout;
+    pControlLayout->addWidget(new QLabel(tr("Number of intervals: ")));
+    pControlLayout->addWidget(mpCountEdit);
+    pControlLayout->addStretch();
+
+    // Create the main layout
+    QVBoxLayout* pMainLayout = new QVBoxLayout;
+    pMainLayout->addLayout(pControlLayout);
+    pMainLayout->addWidget(mpDataTable);
+    setLayout(pMainLayout);
+}
+
+//! Specify connections between widgets
+void IntervalEditor::createConnections()
+{
+    connect(mpCountEdit, &Edit1i::valueChanged, this, &IntervalEditor::setCount);
+    connect(mpDataTable, &CustomTable::itemChanged, this, &IntervalEditor::setData);
+}
+
+//! Set number of intervals
+void IntervalEditor::setCount()
+{
+    mIntervals.resize(mpCountEdit->value(), {0, -1});
+    refresh();
+    emit edited();
+}
+
+//! Set interval data
+void IntervalEditor::setData()
+{
+    int numIntervals = mpDataTable->rowCount();
+    mIntervals.resize(numIntervals);
+    for (int i = 0; i != numIntervals; ++i)
+    {
+        double start = mpDataTable->item(i, 0)->text().toDouble();
+        double end = mpDataTable->item(i, 1)->text().toDouble();
+        if (end > 0.0 && start > end)
+            std::swap(start, end);
+        mIntervals[i] = {start, end};
+    }
+    refresh();
+    emit edited();
 }

@@ -5,6 +5,7 @@ find_package(FFTW3 CONFIG REQUIRED)
 find_package(matio CONFIG REQUIRED)
 
 set(BACKEND_HEADERS
+    aliasdata.h
     fileutility.h
     mathutility.h
     project.h

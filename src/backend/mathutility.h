@@ -30,9 +30,9 @@ std::pair<VectorXd, VectorXd> denoiseTotalVariance(VectorXd const& data, double 
 // Roots
 struct Root
 {
-    double x;
-    double y;
-    int ind;
+    double key;
+    double value;
+    int index;
 };
 std::vector<Root> findRoots(Backend::Core::Response const& response);
 

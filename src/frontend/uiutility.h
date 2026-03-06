@@ -38,6 +38,7 @@ void setIndexByKey(QComboBox* pComboBox, int key);
 QTableWidgetItem* createTableItem(double value, Qt::AlignmentFlag alignment = Qt::AlignCenter);
 QTableWidgetItem* createTableItem(std::vector<double> const& values, Qt::AlignmentFlag alignment = Qt::AlignCenter);
 QTableWidgetItem* createTableItem(QString const& text, Qt::AlignmentFlag alignment = Qt::AlignCenter);
+QDialog* showAsDialog(QWidget* pWidget, QString const& title = QString(), QWidget* pParent = nullptr, bool isModal = false);
 
 // Icons
 QIcon getIcon(QCPScatterStyle const& style, QSize const& size, bool isLine, bool isMarker);

@@ -135,6 +135,20 @@ QTableWidgetItem* createTableItem(QString const& text, Qt::AlignmentFlag alignme
     return pItem;
 }
 
+//! Show widget as a dialog window
+QDialog* showAsDialog(QWidget* pWidget, QString const& title, QWidget* pParent, bool isModal)
+{
+    QDialog* pDialog = new QDialog(pParent);
+    pDialog->setAttribute(Qt::WA_DeleteOnClose, true);
+    pDialog->setWindowTitle(title);
+    pDialog->setModal(isModal);
+    QVBoxLayout* pLayout = new QVBoxLayout;
+    pLayout->addWidget(pWidget);
+    pDialog->setLayout(pLayout);
+    pDialog->show();
+    return pDialog;
+}
+
 //! Get icon for legend
 QIcon getIcon(QCPScatterStyle const& style, QSize const& size, bool isLine, bool isMarker)
 {

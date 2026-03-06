@@ -61,6 +61,7 @@ struct ResponseProperties
     Dimension dimension;
     double sampleRate;
     int numAverages;
+    QString path;
     QString name;
     QString node;
     QString component;
@@ -90,6 +91,8 @@ public:
 
     int index(double key) const;
     double key(int iSample) const;
+    double startKey() const;
+    double endKey() const;
     int numKeys() const;
     int numValues() const;
     bool isEmpty() const;

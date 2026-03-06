@@ -3,6 +3,7 @@
 
 #include <QWidget>
 
+#include "aliasdata.h"
 #include "customlineedit.h"
 #include "uialiasdata.h"
 
@@ -19,6 +20,8 @@ struct Project;
 namespace Frontend
 {
 
+class CustomTable;
+
 class ProjectEditor : public QWidget
 {
     Q_OBJECT
@@ -27,7 +30,7 @@ public:
     ProjectEditor(QSettings& settings, Backend::Core::Project& project, QWidget* pParent = nullptr);
     virtual ~ProjectEditor() = default;
 
-    QSize sizeHint() const;
+    QSize sizeHint() const override;
 
     void readResponses(QString const& pathFile);
     void readSpectrums(QString const& pathFile);
@@ -55,6 +58,7 @@ private:
     // Slots
     void setOptions();
     void setInfo();
+    void showIntervalEditor();
 
 private:
     QSettings& mSettings;
@@ -75,6 +79,38 @@ private:
     Edit1d* mpLevelAmplitudeEdit;
     QPlainTextEdit* mpInfoEdit;
     QComboBox* mpExportComboBox;
+};
+
+class IntervalEditor : public QWidget
+{
+    Q_OBJECT
+
+public:
+    IntervalEditor(QList<Backend::Core::PairDouble>& intervals, QWidget* pParent = nullptr);
+    virtual ~IntervalEditor() = default;
+
+    QSize sizeHint() const override;
+
+    void refresh();
+
+signals:
+    void edited();
+
+private:
+    // Widgets
+    void createContent();
+    void createConnections();
+
+    // Slots
+    void setCount();
+    void setData();
+
+private:
+    QList<Backend::Core::PairDouble>& mIntervals;
+
+    // Widgets
+    Edit1i* mpCountEdit;
+    CustomTable* mpDataTable;
 };
 }
 

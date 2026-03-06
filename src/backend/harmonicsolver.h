@@ -3,17 +3,16 @@
 
 #include <QList>
 
+#include "aliasdata.h"
 #include "response.h"
 
 namespace Backend::Core
 {
 
-using PairDouble = QPair<double, double>;
-
 struct Segment
 {
-    QPair<int, int> indices;
-    QPair<double, double> keys;
+    PairInt indices;
+    PairDouble keys;
     double freq;
 };
 
@@ -61,7 +60,9 @@ public:
     QList<Response> refSpectrums;
 
 private:
-    QPair<VectorXd, VectorXd> evaluateFreqs(Backend::Core::Response const& response);
+    bool checkResponses();
+    QList<PairDouble> processIntervals(Backend::Core::Response const& response);
+    QPair<VectorXd, VectorXd> evaluateFreqs(Backend::Core::Response const& response, QList<PairDouble> const& intervals);
     QList<Segment> createSegments(VectorXi const& edges, VectorXd const& xFreqs, VectorXd const& yFreqs, Response const& response) const;
     QList<Response> computeSpectrums(Response const& syncResponse, Response const& syncSpectrum, QList<Segment> const& segments) const;
 

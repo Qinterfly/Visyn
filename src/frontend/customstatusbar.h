@@ -21,6 +21,7 @@ private:
     void createConnections();
 
 private:
+    QLabel* mpIconLabel;
     QLabel* mpMessageLabel;
     QTimer* mpTimer;
 };

@@ -48,24 +48,12 @@ HarmonicSolution HarmonicSolver::solve()
 {
     HarmonicSolution solution;
 
-    // Sanity check
-    if (mResponses.empty())
-    {
-        qWarning() << QObject::tr("There are no responses to obtain harmonic solution");
+    // Response check
+    if (!checkResponses())
         return solution;
-    }
-    int numResponses = mResponses.size();
-    for (int i = 0; i != numResponses; ++i)
-    {
-        Response const& response = mResponses[i];
-        if (response.isComplex())
-        {
-            qWarning() << QObject::tr("The time response %1 is complex-valued and cannot be procesed").arg(response.props.name);
-            return solution;
-        }
-    }
 
     // Get the synchronization response in time domain
+    int numResponses = mResponses.size();
     int iSyncResponse = options.iSyncResponse;
     if (iSyncResponse < 0 || iSyncResponse >= numResponses)
         iSyncResponse = numResponses - 1;
@@ -88,7 +76,8 @@ HarmonicSolution HarmonicSolver::solve()
     }
 
     // Evaluate frequencies
-    auto [xFreqs, yFreqs] = evaluateFreqs(syncResponse);
+    auto intervals = processIntervals(syncResponse);
+    auto [xFreqs, yFreqs] = evaluateFreqs(syncResponse, intervals);
 
     // Remove outliers from frequencies and fill them linearly
     yFreqs = Utility::fillOutliers(yFreqs);
@@ -115,8 +104,62 @@ HarmonicSolution HarmonicSolver::solve()
     return solution;
 }
 
+//! Check if the set of responses is valid
+bool HarmonicSolver::checkResponses()
+{
+    if (mResponses.empty())
+    {
+        qWarning() << QObject::tr("There are no responses to obtain harmonic solution");
+        return false;
+    }
+    int numResponses = mResponses.size();
+    int numValues = mResponses.first().numValues();
+    if (numValues == 0)
+    {
+        qWarning() << QObject::tr("The response set containts null-sized entities");
+        return false;
+    }
+    for (int i = 0; i != numResponses; ++i)
+    {
+        Response const& response = mResponses[i];
+        if (response.isComplex())
+        {
+            qWarning() << QObject::tr("The time response %1 is complex-valued and cannot be procesed").arg(response.props.name);
+            return false;
+        }
+        if (response.numValues() != numValues)
+        {
+            qWarning() << QObject::tr("The responses have different length and cannot be processed");
+            return false;
+        }
+    }
+    return true;
+}
+
+//! Process intervals specified via options
+QList<PairDouble> HarmonicSolver::processIntervals(Response const& response)
+{
+    int numIntervals = options.intervals.length();
+    QList<PairDouble> result(numIntervals);
+    double start = response.startKey();
+    double end = response.endKey();
+    for (int i = 0; i != numIntervals; ++i)
+    {
+        double left = options.intervals[i].first;
+        double right = options.intervals[i].second;
+        if (left < 0.0)
+            left = start;
+        if (right < 0.0)
+            right = end;
+        if (right < left)
+            std::swap(left, right);
+        result[i] = {left, right};
+    }
+    return result;
+}
+
 //! Estimate frequencies of harmonic process using its roots
-QPair<VectorXd, VectorXd> HarmonicSolver::evaluateFreqs(Response const& response)
+QPair<VectorXd, VectorXd> HarmonicSolver::evaluateFreqs(Response const& response, QList<PairDouble> const& intervals)
 {
     // Find roots
     auto roots = Utility::findRoots(response);
@@ -132,6 +175,7 @@ QPair<VectorXd, VectorXd> HarmonicSolver::evaluateFreqs(Response const& response
     double limitAmplitude = options.levelAmplitude * maxAmplitude;
 
     // Compute frequencies
+    int numIntervals = intervals.size();
     int numRoots = roots.size();
     VectorXd freqs(numRoots);
     QList<bool> mask(numRoots, false);
@@ -140,19 +184,47 @@ QPair<VectorXd, VectorXd> HarmonicSolver::evaluateFreqs(Response const& response
     {
         auto currRoot = roots[iRoot];
         auto nextRoot = roots[iRoot + 1];
-        double delta = nextRoot.x - currRoot.x;
+
+        // Estimate parameters
+        double delta = nextRoot.key - currRoot.key;
         double amplitude = 0.0;
-        for (int iData = currRoot.ind; iData != nextRoot.ind; ++iData)
+        for (int iData = currRoot.index; iData != nextRoot.index; ++iData)
             amplitude = std::max(amplitude, abs(yData[iData]));
+
+        // Compute the frequency
         if (delta > skEps)
         {
             freqs[iRoot] = 0.5 / delta;
             mask[iRoot] = true;
         }
+
+        // Check if the frequency is lower than maximum frequency
         if (freqs[iRoot] > maxFreq)
             mask[iRoot] = false;
+
+        // Check if the amplitude within threshold
         if (limitAmplitude > skEps && amplitude < limitAmplitude)
             mask[iRoot] = false;
+
+        // Check if the root belongs to one of the intervals
+        if (!intervals.isEmpty())
+        {
+            bool isFound = false;
+            double currKey = roots[iRoot].key;
+            for (int iInterval = 0; iInterval != numIntervals; ++iInterval)
+            {
+                PairDouble const& interval = intervals[iInterval];
+                if (currKey >= interval.first && currKey <= interval.second)
+                {
+                    isFound = true;
+                    break;
+                }
+            }
+            if (!isFound)
+                mask[iRoot] = false;
+        }
+
+        // Increase counter
         if (mask[iRoot])
             ++numFreqs;
     }
@@ -161,12 +233,12 @@ QPair<VectorXd, VectorXd> HarmonicSolver::evaluateFreqs(Response const& response
     VectorXd xResult(numFreqs);
     VectorXd yResult(numFreqs);
     numFreqs = 0;
-    for (int i = 0; i != numRoots; ++i)
+    for (int iRoot = 0; iRoot != numRoots; ++iRoot)
     {
-        if (mask[i])
+        if (mask[iRoot])
         {
-            xResult[numFreqs] = roots[i].x;
-            yResult[numFreqs] = freqs[i];
+            xResult[numFreqs] = roots[iRoot].key;
+            yResult[numFreqs] = freqs[iRoot];
             ++numFreqs;
         }
     }
@@ -177,6 +249,10 @@ QPair<VectorXd, VectorXd> HarmonicSolver::evaluateFreqs(Response const& response
 QList<Segment> HarmonicSolver::createSegments(VectorXi const& edges, VectorXd const& xFreqs, VectorXd const& yFreqs,
                                               Response const& response) const
 {
+    // Sanity check
+    if (xFreqs.size() <= 1)
+        return {};
+
     // Add both ends to indices
     int numIndices = edges.size() + 2;
     VectorXi indices(numIndices);
