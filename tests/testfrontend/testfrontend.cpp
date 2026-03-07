@@ -19,10 +19,10 @@ TestFrontend::TestFrontend()
 void TestFrontend::testProjectEditor()
 {
     // Set the files to process
+    QString group = "try";
     QString record = "try3";
-    QString dir = "try";
-    QString pathFileResponses = Utility::combineFilePath(INPUT_DIR, dir, record + ".vaufx");
-    QString pathFileSpectrums = Utility::combineFilePath(INPUT_DIR, dir, record + ".mat");
+    QString pathFileResponses = Utility::combineFilePath(INPUT_DIR, group, record + ".vaufx");
+    QString pathFileSpectrums = Utility::combineFilePath(INPUT_DIR, group, record + ".mat");
 
     // Retrieve the project editor
     ProjectEditor* pEditor = mpMainWindow->projectEditor();
