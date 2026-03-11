@@ -59,13 +59,12 @@ struct ResponseProperties
     Direction direction;
     Domain domain;
     Dimension dimension;
+    int sign;
     double sampleRate;
-    int numAverages;
     QString path;
     QString name;
     QString node;
-    QString component;
-    QString info;
+    int numAverages;
 };
 
 //! Class to present signal data
@@ -83,6 +82,8 @@ public:
     VectorXd const& keys() const;
     VectorXd const& realValues() const;
     VectorXcd const& complexValues() const;
+    VectorXd realSignedValues() const;
+    VectorXcd complexSignedValues() const;
 
     VectorXd real() const;
     VectorXd imag() const;

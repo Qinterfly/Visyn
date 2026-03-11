@@ -8,6 +8,8 @@
 #include <QPlainTextEdit>
 #include <QPushButton>
 
+#include <testlab/api.h>
+
 #include "customlineedit.h"
 #include "customtable.h"
 #include "mathutility.h"
@@ -18,15 +20,22 @@
 using namespace Backend::Core;
 using namespace Frontend;
 
+Response convert(Testlab::IResponse* pResponse);
+QList<Response> convert(std::vector<Testlab::IResponse*> const responses);
+VectorXd convert(std::vector<double> const& data);
+VectorXcd convert(std::vector<double> const& real, std::vector<double> const& imag);
+
 enum ExportFormat
 {
-    kMatlab
+    kMatlab,
+    kTestlab
 };
 
 ProjectEditor::ProjectEditor(QSettings& settings, Project& project, QWidget* pParent)
     : QWidget(pParent)
     , mSettings(settings)
     , mProject(project)
+    , mpTestlabProject(nullptr)
 {
     setFont(Utility::getFont());
     createContent();
@@ -37,6 +46,27 @@ ProjectEditor::ProjectEditor(QSettings& settings, Project& project, QWidget* pPa
 QSize ProjectEditor::sizeHint() const
 {
     return QSize(300, 1000);
+}
+
+//! Open a Testlab project
+void ProjectEditor::openTestlab(QString const& pathFile)
+{
+    if (mpTestlabProject)
+        delete mpTestlabProject;
+    mpTestlabProject = nullptr;
+    Testlab::IProject* pProject = Testlab::openProject(pathFile.toStdWString());
+    if (pProject->isValid())
+    {
+        mpTestlabProject = pProject;
+        mpTestlabPathEdit->setText(pathFile);
+        Utility::setLastPathFile(mSettings, pathFile);
+        qInfo() << tr("Testlab project is successfully opened");
+    }
+    else
+    {
+        delete pProject;
+        qWarning() << tr("Could not connect to a Testlab project. Make sure that the license server is running");
+    }
 }
 
 //! Read responses from a file
@@ -68,6 +98,34 @@ void ProjectEditor::readSpectrums(QString const& pathFile)
         mpSpectrumPathEdit->setText(pathFile);
         Utility::setLastPathFile(mSettings, pathFile);
         qInfo() << tr("Spectrums were successfully loaded from the file");
+    }
+    refresh();
+    emit requestPlot();
+}
+
+//! Load selected spectrums from a Testlab project
+void ProjectEditor::loadSpectrums()
+{
+    if (mpTestlabProject && mpTestlabProject->isValid())
+    {
+        auto spectrums = mpTestlabProject->getSelectedResponses();
+        mProject.spectrums = convert(spectrums);
+        for (auto* p : spectrums)
+            delete p;
+        spectrums.clear();
+        if (mProject.spectrums.isEmpty())
+        {
+            qWarning() << tr("There are no selected responses in Testlab project");
+        }
+        else
+        {
+            mpSpectrumPathEdit->setText(tr("Loaded from Testlab project"));
+            qInfo() << tr("Spectrums were successfully loaded from the Testlab project");
+        }
+    }
+    else
+    {
+        qWarning() << tr("Testlab project is not opened. Could not load spectrums");
     }
     refresh();
     emit requestPlot();
@@ -175,26 +233,36 @@ QGroupBox* ProjectEditor::createInputGroupBox()
     QGridLayout* pLayout = new QGridLayout;
 
     // Create the widgets
-    mpResponsePathEdit = new QLineEdit;
-    mpSpectrumPathEdit = new QLineEdit;
-    QPushButton* pOpenResponseButton = new QPushButton(QIcon(":/icons/document-open.svg"), QString());
-    QPushButton* pOpenSpectrumButton = new QPushButton(QIcon(":/icons/document-open.svg"), QString());
+    mpTestlabPathEdit = new Edit1s;
+    mpResponsePathEdit = new Edit1s;
+    mpSpectrumPathEdit = new Edit1s;
+    QPushButton* pOpenTestlabButton = new QPushButton(QIcon(":/icons/document-open.svg"), QString());
+    QPushButton* pReadResponseButton = new QPushButton(QIcon(":/icons/document-open.svg"), QString());
+    QPushButton* pReadSpectrumButton = new QPushButton(QIcon(":/icons/document-open.svg"), QString());
+    QPushButton* pLoadSpectrumButton = new QPushButton(QIcon(":/icons/select.png"), QString());
 
     // Initialize the widgets
+    mpTestlabPathEdit->setReadOnly(true);
     mpResponsePathEdit->setReadOnly(true);
     mpSpectrumPathEdit->setReadOnly(true);
 
     // Set the connections
-    connect(pOpenResponseButton, &QPushButton::clicked, this, &ProjectEditor::openResponseDialog);
-    connect(pOpenSpectrumButton, &QPushButton::clicked, this, &ProjectEditor::openSpectrumDialog);
+    connect(pOpenTestlabButton, &QPushButton::clicked, this, &ProjectEditor::testlabFileDialog);
+    connect(pReadResponseButton, &QPushButton::clicked, this, &ProjectEditor::responseFileDialog);
+    connect(pReadSpectrumButton, &QPushButton::clicked, this, &ProjectEditor::spectrumFileDialog);
+    connect(pLoadSpectrumButton, &QPushButton::clicked, this, &ProjectEditor::loadSpectrums);
 
     // Combine the widgets
-    pLayout->addWidget(new QLabel(tr("Time responses: ")), 0, 0);
-    pLayout->addWidget(mpResponsePathEdit, 0, 1);
-    pLayout->addWidget(pOpenResponseButton, 0, 2);
-    pLayout->addWidget(new QLabel(tr("Reference spectrums: ")), 1, 0);
-    pLayout->addWidget(mpSpectrumPathEdit, 1, 1);
-    pLayout->addWidget(pOpenSpectrumButton, 1, 2);
+    pLayout->addWidget(new QLabel(tr("Testlab project: ")), 0, 0);
+    pLayout->addWidget(mpTestlabPathEdit, 0, 1, 1, 2);
+    pLayout->addWidget(pOpenTestlabButton, 0, 3);
+    pLayout->addWidget(new QLabel(tr("Time responses: ")), 1, 0);
+    pLayout->addWidget(mpResponsePathEdit, 1, 1, 1, 2);
+    pLayout->addWidget(pReadResponseButton, 1, 3);
+    pLayout->addWidget(new QLabel(tr("Reference spectrums: ")), 2, 0);
+    pLayout->addWidget(mpSpectrumPathEdit, 2, 1);
+    pLayout->addWidget(pLoadSpectrumButton, 2, 2);
+    pLayout->addWidget(pReadSpectrumButton, 2, 3);
 
     // Create the group box
     QGroupBox* pGroupBox = new QGroupBox(tr("Input Data"));
@@ -302,6 +370,8 @@ QGroupBox* ProjectEditor::createExportGroupBox()
     // Create the widgets
     mpExportComboBox = new QComboBox;
     mpExportComboBox->addItem("Matlab", ExportFormat::kMatlab);
+    mpExportComboBox->addItem("Testlab", ExportFormat::kTestlab);
+    Utility::setIndexByKey(mpExportComboBox, ExportFormat::kTestlab);
 
     // Create the main layout
     QVBoxLayout* pMainLayout = new QVBoxLayout;
@@ -328,8 +398,18 @@ QGroupBox* ProjectEditor::createExportGroupBox()
     return pGroupBox;
 }
 
+//! Create a file dialog for opening a Testlab project
+void ProjectEditor::testlabFileDialog()
+{
+    QString pathFile = QFileDialog::getOpenFileName(this, tr("Open Testlab Project"), Utility::getLastDirectory(mSettings).path(),
+                                                    tr("Testlab file format (*.lms)"));
+    if (pathFile.isEmpty())
+        return;
+    openTestlab(pathFile);
+}
+
 //! Create a file dialog for opening responses
-void ProjectEditor::openResponseDialog()
+void ProjectEditor::responseFileDialog()
 {
     QString pathFile = QFileDialog::getOpenFileName(this, tr("Read Responses"), Utility::getLastDirectory(mSettings).path(),
                                                     tr("Response file format (*.vaufx *.mat)"));
@@ -341,7 +421,7 @@ void ProjectEditor::openResponseDialog()
 }
 
 //! Create a file dialog for opening spectrums
-void ProjectEditor::openSpectrumDialog()
+void ProjectEditor::spectrumFileDialog()
 {
     QString pathFile = QFileDialog::getOpenFileName(this, tr("Read Spectrums"), Utility::getLastDirectory(mSettings).path(),
                                                     tr("Spectrum file format (*.mat)"));
@@ -356,7 +436,9 @@ void ProjectEditor::openSpectrumDialog()
 void ProjectEditor::exportDialog()
 {
     ExportFormat format = (ExportFormat) mpExportComboBox->currentData().toInt();
-    if (format == ExportFormat::kMatlab)
+    switch (format)
+    {
+    case kMatlab:
     {
         QString const kExpectedSuffix = "mat";
 
@@ -371,6 +453,13 @@ void ProjectEditor::exportDialog()
         // Save the project
         if (mProject.write(pathFile))
             qInfo() << tr("The project was saved as the following file %1").arg(pathFile);
+        break;
+    }
+    case kTestlab:
+    {
+        // TODO
+        break;
+    }
     }
 }
 
@@ -529,4 +618,69 @@ void IntervalEditor::setData()
     }
     refresh();
     emit edited();
+}
+
+//! Helper function to convert a Testlab response
+Response convert(Testlab::IResponse* pResponse)
+{
+    // Constants
+    QMap<QString, Direction> const kDirMap = {{"X", Direction::kX}, {"Y", Direction::kY}, {"Z", Direction::kZ}};
+
+    Response result;
+
+    // Set data
+    result.setKeys(convert(pResponse->keys));
+    if (pResponse->imagValues.size() > 0)
+        result.setValues(convert(pResponse->realValues, pResponse->imagValues));
+    else
+        result.setValues(convert(pResponse->realValues));
+
+    // Set properties
+    QString direction = QString::fromStdWString(pResponse->direction);
+    QString dimension = QString::fromStdWString(pResponse->dimension);
+    ResponseProperties& props = result.props;
+    props.id = pResponse->channel;
+    props.direction = kDirMap.contains(direction) ? kDirMap[direction] : Direction::kNone;
+    props.domain = result.isComplex() ? Domain::kFreq : Domain::kTime;
+    props.dimension = dimension == "Accel" ? Dimension::kAccel : Dimension::kNone;
+    props.sign = pResponse->sign;
+    props.sampleRate = 0;
+    props.path = QString::fromStdWString(pResponse->path);
+    props.name = QString::fromStdWString(pResponse->name);
+    props.node = QString::fromStdWString(pResponse->node);
+    props.numAverages = pResponse->numAverages;
+
+    return result;
+}
+
+//! Helper function to convert Testlab responses
+QList<Response> convert(std::vector<Testlab::IResponse*> const responses)
+{
+    int numResponses = responses.size();
+    QList<Response> result(numResponses);
+    for (int i = 0; i != numResponses; ++i)
+        result[i] = convert(responses[i]);
+    return result;
+}
+
+//! Helper function to convert real array to Eigen vector
+VectorXd convert(std::vector<double> const& data)
+{
+    int numData = data.size();
+    VectorXd result(numData);
+    for (int i = 0; i != numData; ++i)
+        result[i] = data[i];
+    return result;
+}
+
+//! Helper function to convert complex array to Eigen vector
+VectorXcd convert(std::vector<double> const& real, std::vector<double> const& imag)
+{
+    if (real.size() != imag.size())
+        return {};
+    int numData = real.size();
+    VectorXcd result(numData);
+    for (int i = 0; i != numData; ++i)
+        result[i] = {real[i], imag[i]};
+    return result;
 }

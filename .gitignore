@@ -4,6 +4,8 @@ build
 experiment
 info
 input
+lib/testlab/Debug
+lib/testlab/Release
 output
 prototype
 resources

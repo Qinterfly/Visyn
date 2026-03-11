@@ -24,6 +24,7 @@ ResponseProperties::ResponseProperties()
     , direction(Direction::kNone)
     , domain(Domain::kNone)
     , dimension(Dimension::kNone)
+    , sign(1)
     , sampleRate(0.0)
     , numAverages(0)
 {
@@ -73,6 +74,16 @@ VectorXd const& Response::realValues() const
 VectorXcd const& Response::complexValues() const
 {
     return mComplexValues;
+}
+
+VectorXd Response::realSignedValues() const
+{
+    return props.sign * mRealValues;
+}
+
+VectorXcd Response::complexSignedValues() const
+{
+    return props.sign * mComplexValues;
 }
 
 VectorXd Response::real() const

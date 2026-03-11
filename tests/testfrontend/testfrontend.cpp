@@ -1,7 +1,6 @@
 #include <config.h>
 
 #include "fileutility.h"
-#include "project.h"
 #include "projecteditor.h"
 #include "testfrontend.h"
 
@@ -15,8 +14,8 @@ TestFrontend::TestFrontend()
     mpMainWindow = new MainWindow;
 }
 
-//! Create a project
-void TestFrontend::testProjectEditor()
+//! Create a project and resolve it
+void TestFrontend::testCreateProject()
 {
     // Set the files to process
     QString group = "try";
@@ -33,13 +32,11 @@ void TestFrontend::testProjectEditor()
 
     // Perform the solution
     pEditor->solve();
-
-    // Show the window
-    mpMainWindow->show();
 }
 
 TestFrontend::~TestFrontend()
 {
+    mpMainWindow->show();
     QTest::qWait(30000);
     mpMainWindow->deleteLater();
 }

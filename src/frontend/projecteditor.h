@@ -12,6 +12,11 @@ QT_FORWARD_DECLARE_CLASS(QComboBox)
 QT_FORWARD_DECLARE_CLASS(QSettings)
 QT_FORWARD_DECLARE_CLASS(QPlainTextEdit)
 
+namespace Testlab
+{
+class IProject;
+}
+
 namespace Backend::Core
 {
 struct Project;
@@ -32,8 +37,10 @@ public:
 
     QSize sizeHint() const override;
 
+    void openTestlab(QString const& pathFile);
     void readResponses(QString const& pathFile);
     void readSpectrums(QString const& pathFile);
+    void loadSpectrums();
     void solve();
     void refresh();
 
@@ -51,8 +58,9 @@ private:
     QGroupBox* createExportGroupBox();
 
     // Dialogs
-    void openResponseDialog();
-    void openSpectrumDialog();
+    void testlabFileDialog();
+    void responseFileDialog();
+    void spectrumFileDialog();
     void exportDialog();
 
     // Slots
@@ -63,8 +71,10 @@ private:
 private:
     QSettings& mSettings;
     Backend::Core::Project& mProject;
+    Testlab::IProject* mpTestlabProject;
 
     // Input
+    Edit1s* mpTestlabPathEdit;
     Edit1s* mpResponsePathEdit;
     Edit1s* mpSpectrumPathEdit;
 

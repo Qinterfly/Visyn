@@ -42,6 +42,7 @@ target_link_libraries(frontend PRIVATE
     Qt::Gui
     Qt::Widgets
     magic_enum::magic_enum
+    ${TESTLAB_LIB}
     qtpropertybrowser
     qcustomplot
     backend
