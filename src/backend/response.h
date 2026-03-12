@@ -64,7 +64,9 @@ struct ResponseProperties
     QString path;
     QString name;
     QString node;
+    QString component;
     int numAverages;
+    QString transducer;
 };
 
 //! Class to present signal data

@@ -36,6 +36,7 @@ namespace Testlab
 		int channel;
 		int numAverages;
 		int sign;
+		std::wstring transducer;
 	};
 
 	class IProject
@@ -44,9 +45,10 @@ namespace Testlab
 		virtual ~IProject() = default;
 
 		virtual bool isValid() const = 0;
-		virtual std::wstring path() const = 0;
+		virtual std::wstring getPath() = 0;
 
 		// Section
+		virtual std::wstring getActiveSection() = 0;
 		virtual void createSection(std::wstring const& section, bool isSelect) = 0;
 		virtual bool isSectionExist(std::wstring const& section) = 0;
 

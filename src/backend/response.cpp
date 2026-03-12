@@ -290,6 +290,9 @@ bool ResponseIO::write(QString const& pathFile, QList<Response> const& responses
 //! Read responses from a .vaufx formatted file
 QList<Response> ResponseIO::read(Visom::VaufxFile& file)
 {
+    // Constants
+    QString const kChannelKey = "Канал";
+
     // Read the header
     auto header = file.readHeader();
 
@@ -301,11 +304,14 @@ QList<Response> ResponseIO::read(Visom::VaufxFile& file)
     {
         auto& props = responses[i].props;
         auto const& subheader = subheaders[i];
+        QString name = QString::fromStdU16String(subheader.name);
         props.id = 1 + i;
         props.domain = Domain::kTime;
         props.dimension = (Dimension) subheader.dimension;
         props.sampleRate = header.sampleRate;
-        props.name = QString::fromStdU16String(subheader.name);
+        props.name = name;
+        if (name.contains(kChannelKey))
+            props.id = name.remove(kChannelKey).toInt();
     }
 
     // Helper function for reading data

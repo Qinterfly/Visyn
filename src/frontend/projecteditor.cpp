@@ -20,10 +20,16 @@
 using namespace Backend::Core;
 using namespace Frontend;
 
+// From Testlab
 Response convert(Testlab::IResponse* pResponse);
 QList<Response> convert(std::vector<Testlab::IResponse*> const responses);
 VectorXd convert(std::vector<double> const& data);
 VectorXcd convert(std::vector<double> const& real, std::vector<double> const& imag);
+
+// To Testlab
+Testlab::IResponse* convert(Response const& response);
+std::vector<Testlab::IResponse*> convert(QList<Response> const responses);
+std::vector<double> convert(VectorXd const& data);
 
 enum ExportFormat
 {
@@ -43,6 +49,12 @@ ProjectEditor::ProjectEditor(QSettings& settings, Project& project, QWidget* pPa
     refresh();
 }
 
+ProjectEditor::~ProjectEditor()
+{
+    if (mpTestlabProject)
+        delete mpTestlabProject;
+}
+
 QSize ProjectEditor::sizeHint() const
 {
     return QSize(300, 1000);
@@ -59,6 +71,7 @@ void ProjectEditor::openTestlab(QString const& pathFile)
     {
         mpTestlabProject = pProject;
         mpTestlabPathEdit->setText(pathFile);
+        setTestlabExportPath();
         Utility::setLastPathFile(mSettings, pathFile);
         qInfo() << tr("Testlab project is successfully opened");
     }
@@ -94,8 +107,9 @@ void ProjectEditor::readSpectrums(QString const& pathFile)
     if (!spectrums.isEmpty())
     {
         mProject.spectrums = spectrums;
-        mProject.options.iSyncSpectrum = spectrums.size() - 1;
+        mProject.options.iSyncSpectrum = mProject.spectrums.size() - 1;
         mpSpectrumPathEdit->setText(pathFile);
+        mpTestlabExportPathEdit->clear();
         Utility::setLastPathFile(mSettings, pathFile);
         qInfo() << tr("Spectrums were successfully loaded from the file");
     }
@@ -110,18 +124,20 @@ void ProjectEditor::loadSpectrums()
     {
         auto spectrums = mpTestlabProject->getSelectedResponses();
         mProject.spectrums = convert(spectrums);
-        for (auto* p : spectrums)
-            delete p;
-        spectrums.clear();
         if (mProject.spectrums.isEmpty())
         {
             qWarning() << tr("There are no selected responses in Testlab project");
         }
         else
         {
+            mProject.options.iSyncSpectrum = mProject.spectrums.size() - 1;
             mpSpectrumPathEdit->setText(tr("Loaded from Testlab project"));
+            setTestlabExportPath(mProject.spectrums);
             qInfo() << tr("Spectrums were successfully loaded from the Testlab project");
         }
+        for (auto* p : spectrums)
+            delete p;
+        spectrums.clear();
     }
     else
     {
@@ -142,19 +158,6 @@ void ProjectEditor::solve()
         qInfo() << tr("Harmonic solver finished successfully");
     refresh();
     emit requestPlot();
-}
-
-//! Show the editor of intervals
-void ProjectEditor::showIntervalEditor()
-{
-    IntervalEditor* pEditor = new IntervalEditor(mProject.options.intervals);
-    Utility::showAsDialog(pEditor, tr("Interval Editor"), this);
-    connect(pEditor, &IntervalEditor::edited, this,
-            [this]()
-            {
-                refresh();
-                emit requestPlot();
-            });
 }
 
 //! Update the widget state
@@ -198,6 +201,10 @@ void ProjectEditor::refresh()
 
     // Set the info
     setInfo();
+
+    // Set the export
+    ExportFormat exportFormat = (ExportFormat) mpExportTypeComboBox->currentData().toInt();
+    mpTestlabExportWidget->setVisible(exportFormat == ExportFormat::kTestlab);
 }
 
 //! Create all the widgets
@@ -224,6 +231,9 @@ void ProjectEditor::createConnections()
     connect(mpNumSkipPeriodsEdit, &Edit1i::valueChanged, this, &ProjectEditor::setOptions);
     connect(mpMaxFreqEdit, &Edit1d::valueChanged, this, &ProjectEditor::setOptions);
     connect(mpLevelAmplitudeEdit, &Edit1d::valueChanged, this, &ProjectEditor::setOptions);
+
+    // Export
+    connect(mpExportTypeComboBox, &QComboBox::currentIndexChanged, this, &ProjectEditor::refresh);
 }
 
 //! Create a widget to handle input data
@@ -368,10 +378,10 @@ QGroupBox* ProjectEditor::createInfoGroupBox()
 QGroupBox* ProjectEditor::createExportGroupBox()
 {
     // Create the widgets
-    mpExportComboBox = new QComboBox;
-    mpExportComboBox->addItem("Matlab", ExportFormat::kMatlab);
-    mpExportComboBox->addItem("Testlab", ExportFormat::kTestlab);
-    Utility::setIndexByKey(mpExportComboBox, ExportFormat::kTestlab);
+    mpExportTypeComboBox = new QComboBox;
+    mpExportTypeComboBox->addItem("Matlab", ExportFormat::kMatlab);
+    mpExportTypeComboBox->addItem("Testlab", ExportFormat::kTestlab);
+    Utility::setIndexByKey(mpExportTypeComboBox, ExportFormat::kTestlab);
 
     // Create the main layout
     QVBoxLayout* pMainLayout = new QVBoxLayout;
@@ -379,8 +389,17 @@ QGroupBox* ProjectEditor::createExportGroupBox()
     // Create the format layout
     QHBoxLayout* pFormatLayout = new QHBoxLayout;
     pFormatLayout->addWidget(new QLabel(tr("Export format: ")));
-    pFormatLayout->addWidget(mpExportComboBox);
+    pFormatLayout->addWidget(mpExportTypeComboBox);
     pFormatLayout->addStretch();
+
+    // Create the Testlab layout
+    QHBoxLayout* pTestlabLayout = new QHBoxLayout;
+    mpTestlabExportPathEdit = new Edit1s;
+    pTestlabLayout->addWidget(new QLabel(tr("Project path: ")));
+    pTestlabLayout->addWidget(mpTestlabExportPathEdit);
+    pTestlabLayout->setContentsMargins(0, 0, 0, 0);
+    mpTestlabExportWidget = new QWidget;
+    mpTestlabExportWidget->setLayout(pTestlabLayout);
 
     // Create the control layout
     QHBoxLayout* pControlLayout = new QHBoxLayout;
@@ -392,6 +411,7 @@ QGroupBox* ProjectEditor::createExportGroupBox()
     // Create the group box
     QGroupBox* pGroupBox = new QGroupBox(tr("Project Export"));
     pMainLayout->addLayout(pFormatLayout);
+    pMainLayout->addWidget(mpTestlabExportWidget);
     pMainLayout->addLayout(pControlLayout);
     pGroupBox->setLayout(pMainLayout);
 
@@ -435,7 +455,7 @@ void ProjectEditor::spectrumFileDialog()
 //! Show project export dialog
 void ProjectEditor::exportDialog()
 {
-    ExportFormat format = (ExportFormat) mpExportComboBox->currentData().toInt();
+    ExportFormat format = (ExportFormat) mpExportTypeComboBox->currentData().toInt();
     switch (format)
     {
     case kMatlab:
@@ -457,7 +477,8 @@ void ProjectEditor::exportDialog()
     }
     case kTestlab:
     {
-        // TODO
+        QString path = mpTestlabExportPathEdit->text();
+        addResponsesTestlab(mProject.solution.spectrums, path);
         break;
     }
     }
@@ -524,6 +545,86 @@ void ProjectEditor::setInfo()
         mpInfoEdit->appendPlainText(tr("-> Frequency range: %1 - %2 Hz").arg(minFreq, 0, 'f', 2).arg(maxFreq, 0, 'f', 2));
         mpInfoEdit->appendPlainText(tr("-> Frequency step: %1 Hz").arg(stepFreq, 0, 'g', 3));
     }
+}
+
+//! Show the editor of intervals
+void ProjectEditor::showIntervalEditor()
+{
+    IntervalEditor* pEditor = new IntervalEditor(mProject.options.intervals);
+    Utility::showAsDialog(pEditor, tr("Interval Editor"), this);
+    connect(pEditor, &IntervalEditor::edited, this,
+            [this]()
+            {
+                refresh();
+                emit requestPlot();
+            });
+}
+
+//! Add responses to the Testlab project
+void ProjectEditor::addResponsesTestlab(QList<Response> const& responses, QString const& path)
+{
+    // Sanity check
+    if (!mpTestlabProject)
+    {
+        qWarning() << tr("Testlab project is not opened");
+        return;
+    }
+    if (!mpTestlabProject->isValid())
+    {
+        qWarning() << tr("Testlab project is not valid");
+        return;
+    }
+
+    // Add the responses
+    auto cResponses = convert(responses);
+    bool isSuccess = mpTestlabProject->addResponses(cResponses, path.toStdWString());
+    if (isSuccess)
+        qInfo() << tr("Responses were sucessfully saved at %1").arg(path);
+}
+
+//! Predefine the Testlab export path
+void ProjectEditor::setTestlabExportPath(QList<Response> const& responses)
+{
+    // Constants
+    QChar const kDelimiter = '/';
+
+    // Sanity check
+    if (!mpTestlabProject)
+        return;
+    if (!mpTestlabProject->isValid())
+        return;
+
+    // Build up the path using the spectrums, if it is not set
+    QString path;
+    if (!responses.isEmpty())
+    {
+        int numResponses = responses.size();
+        for (int i = 0; i != numResponses; ++i)
+        {
+            QString const& pathResponse = responses[i].props.path;
+            if (pathResponse.isEmpty())
+                continue;
+            path = pathResponse;
+            // Remove the response name
+            int iLast = path.length();
+            if (path.endsWith(kDelimiter))
+                iLast = path.lastIndexOf(kDelimiter) - 1;
+            int iSplit = path.lastIndexOf(kDelimiter, iLast);
+            path = path.first(iSplit);
+            break;
+        }
+    }
+
+    // Use the active section, if the path is still empty
+    if (path.isEmpty())
+        path = QString::fromStdWString(mpTestlabProject->getActiveSection());
+
+    // Add the delimiter at the end
+    if (!path.endsWith(kDelimiter))
+        path += kDelimiter;
+
+    // Set the edit value
+    mpTestlabExportPathEdit->setText(path);
 }
 
 IntervalEditor::IntervalEditor(QList<PairDouble>& intervals, QWidget* pParent)
@@ -649,6 +750,7 @@ Response convert(Testlab::IResponse* pResponse)
     props.name = QString::fromStdWString(pResponse->name);
     props.node = QString::fromStdWString(pResponse->node);
     props.numAverages = pResponse->numAverages;
+    props.transducer = QString::fromStdWString(pResponse->transducer);
 
     return result;
 }
@@ -683,4 +785,57 @@ VectorXcd convert(std::vector<double> const& real, std::vector<double> const& im
     for (int i = 0; i != numData; ++i)
         result[i] = {real[i], imag[i]};
     return result;
+}
+
+//! Convert response from the interop to custom format
+Testlab::IResponse* convert(Response const& response)
+{
+    // Constants
+    QMap<Direction, QString> const kDirMap = {{Direction::kX, "X"}, {Direction::kY, "Y"}, {Direction::kZ, "Z"}};
+
+    Testlab::IResponse* pResult = new Testlab::IResponse;
+
+    // Set data
+    pResult->keys = convert(response.keys());
+    if (response.isComplex())
+    {
+        pResult->realValues = convert(response.real());
+        pResult->imagValues = convert(response.imag());
+    }
+    else
+    {
+        pResult->realValues = convert(response.realValues());
+    }
+
+    // Set properties
+    ResponseProperties const& props = response.props;
+    pResult->channel = props.id;
+    if (kDirMap.contains(props.direction))
+        pResult->direction = kDirMap[props.direction].toStdWString();
+    if (props.dimension == Dimension::kAccel)
+        pResult->dimension = QString("Accel").toStdWString();
+    pResult->sign = props.sign;
+    pResult->path = props.path.toStdWString();
+    pResult->name = props.name.toStdWString();
+    pResult->component = props.component.toStdWString();
+    pResult->numAverages = props.numAverages;
+    pResult->transducer = props.transducer.toStdWString();
+
+    return pResult;
+}
+
+//! Convert responses for interoperability
+std::vector<Testlab::IResponse*> convert(QList<Response> const responses)
+{
+    int numResponses = responses.size();
+    std::vector<Testlab::IResponse*> result(numResponses);
+    for (int i = 0; i != numResponses; ++i)
+        result[i] = convert(responses[i]);
+    return result;
+}
+
+//! Convert Eigen double vector to the standard one
+std::vector<double> convert(VectorXd const& data)
+{
+    return std::vector<double>(data.data(), data.data() + data.size());
 }

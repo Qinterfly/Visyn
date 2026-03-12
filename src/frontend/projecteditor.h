@@ -20,6 +20,7 @@ class IProject;
 namespace Backend::Core
 {
 struct Project;
+class Response;
 }
 
 namespace Frontend
@@ -33,7 +34,7 @@ class ProjectEditor : public QWidget
 
 public:
     ProjectEditor(QSettings& settings, Backend::Core::Project& project, QWidget* pParent = nullptr);
-    virtual ~ProjectEditor() = default;
+    virtual ~ProjectEditor();
 
     QSize sizeHint() const override;
 
@@ -66,7 +67,10 @@ private:
     // Slots
     void setOptions();
     void setInfo();
+    void setExport();
     void showIntervalEditor();
+    void addResponsesTestlab(QList<Backend::Core::Response> const& responses, QString const& path);
+    void setTestlabExportPath(QList<Backend::Core::Response> const& responses = {});
 
 private:
     QSettings& mSettings;
@@ -88,7 +92,11 @@ private:
     Edit1d* mpMaxFreqEdit;
     Edit1d* mpLevelAmplitudeEdit;
     QPlainTextEdit* mpInfoEdit;
-    QComboBox* mpExportComboBox;
+
+    // Export
+    QComboBox* mpExportTypeComboBox;
+    QWidget* mpTestlabExportWidget;
+    Edit1s* mpTestlabExportPathEdit;
 };
 
 class IntervalEditor : public QWidget
