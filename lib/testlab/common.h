@@ -37,6 +37,7 @@ namespace Testlab
 		int numAverages;
 		int sign;
 		std::wstring transducer;
+		std::wstring comment;
 	};
 
 	class IProject

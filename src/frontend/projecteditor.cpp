@@ -15,6 +15,7 @@
 #include "mathutility.h"
 #include "project.h"
 #include "projecteditor.h"
+#include "setupeditor.h"
 #include "uiutility.h"
 
 using namespace Backend::Core;
@@ -58,6 +59,11 @@ ProjectEditor::~ProjectEditor()
 QSize ProjectEditor::sizeHint() const
 {
     return QSize(300, 1000);
+}
+
+SetupEditor* ProjectEditor::setupEditor()
+{
+    return mpSetupEditor;
 }
 
 //! Open a Testlab project
@@ -158,6 +164,32 @@ void ProjectEditor::solve()
         qInfo() << tr("Harmonic solver finished successfully");
     refresh();
     emit requestPlot();
+}
+
+//! Add responses to the Testlab project
+void ProjectEditor::addResponsesTestlab(QList<Response> const& responses, QString const& path)
+{
+    // Sanity check
+    if (!mpTestlabProject)
+    {
+        qWarning() << tr("Testlab project is not opened");
+        return;
+    }
+    if (!mpTestlabProject->isValid())
+    {
+        qWarning() << tr("Testlab project is not valid");
+        return;
+    }
+
+    // Use the current setup to modify properties
+    QList<Response> uResponses = responses;
+    mpSetupEditor->replaceProperties(uResponses);
+
+    // Add the responses
+    auto cResponses = convert(uResponses);
+    bool isSuccess = mpTestlabProject->addResponses(cResponses, path.toStdWString());
+    if (isSuccess)
+        qInfo() << tr("Responses were sucessfully saved at %1").arg(path);
 }
 
 //! Update the widget state
@@ -382,6 +414,7 @@ QGroupBox* ProjectEditor::createExportGroupBox()
     mpExportTypeComboBox->addItem("Matlab", ExportFormat::kMatlab);
     mpExportTypeComboBox->addItem("Testlab", ExportFormat::kTestlab);
     Utility::setIndexByKey(mpExportTypeComboBox, ExportFormat::kTestlab);
+    mpSetupEditor = new SetupEditor;
 
     // Create the main layout
     QVBoxLayout* pMainLayout = new QVBoxLayout;
@@ -404,8 +437,11 @@ QGroupBox* ProjectEditor::createExportGroupBox()
     // Create the control layout
     QHBoxLayout* pControlLayout = new QHBoxLayout;
     QPushButton* pExportButton = new QPushButton(QIcon(":/icons/document-export.svg"), tr("Export"));
+    QPushButton* pSetupButton = new QPushButton(QIcon(":/icons/setup.svg"), tr("Setup"));
     connect(pExportButton, &QPushButton::clicked, this, &ProjectEditor::exportDialog);
+    connect(pSetupButton, &QPushButton::clicked, mpSetupEditor, &SetupEditor::show);
     pControlLayout->addWidget(pExportButton);
+    pControlLayout->addWidget(pSetupButton);
     pControlLayout->addStretch();
 
     // Create the group box
@@ -560,28 +596,6 @@ void ProjectEditor::showIntervalEditor()
             });
 }
 
-//! Add responses to the Testlab project
-void ProjectEditor::addResponsesTestlab(QList<Response> const& responses, QString const& path)
-{
-    // Sanity check
-    if (!mpTestlabProject)
-    {
-        qWarning() << tr("Testlab project is not opened");
-        return;
-    }
-    if (!mpTestlabProject->isValid())
-    {
-        qWarning() << tr("Testlab project is not valid");
-        return;
-    }
-
-    // Add the responses
-    auto cResponses = convert(responses);
-    bool isSuccess = mpTestlabProject->addResponses(cResponses, path.toStdWString());
-    if (isSuccess)
-        qInfo() << tr("Responses were sucessfully saved at %1").arg(path);
-}
-
 //! Predefine the Testlab export path
 void ProjectEditor::setTestlabExportPath(QList<Response> const& responses)
 {
@@ -724,9 +738,6 @@ void IntervalEditor::setData()
 //! Helper function to convert a Testlab response
 Response convert(Testlab::IResponse* pResponse)
 {
-    // Constants
-    QMap<QString, Direction> const kDirMap = {{"X", Direction::kX}, {"Y", Direction::kY}, {"Z", Direction::kZ}};
-
     Response result;
 
     // Set data
@@ -741,7 +752,7 @@ Response convert(Testlab::IResponse* pResponse)
     QString dimension = QString::fromStdWString(pResponse->dimension);
     ResponseProperties& props = result.props;
     props.id = pResponse->channel;
-    props.direction = kDirMap.contains(direction) ? kDirMap[direction] : Direction::kNone;
+    props.direction = getDirection(direction);
     props.domain = result.isComplex() ? Domain::kFreq : Domain::kTime;
     props.dimension = dimension == "Accel" ? Dimension::kAccel : Dimension::kNone;
     props.sign = pResponse->sign;
@@ -751,6 +762,7 @@ Response convert(Testlab::IResponse* pResponse)
     props.node = QString::fromStdWString(pResponse->node);
     props.numAverages = pResponse->numAverages;
     props.transducer = QString::fromStdWString(pResponse->transducer);
+    props.comment = QString::fromStdWString(pResponse->comment);
 
     return result;
 }
@@ -790,9 +802,6 @@ VectorXcd convert(std::vector<double> const& real, std::vector<double> const& im
 //! Convert response from the interop to custom format
 Testlab::IResponse* convert(Response const& response)
 {
-    // Constants
-    QMap<Direction, QString> const kDirMap = {{Direction::kX, "X"}, {Direction::kY, "Y"}, {Direction::kZ, "Z"}};
-
     Testlab::IResponse* pResult = new Testlab::IResponse;
 
     // Set data
@@ -810,16 +819,17 @@ Testlab::IResponse* convert(Response const& response)
     // Set properties
     ResponseProperties const& props = response.props;
     pResult->channel = props.id;
-    if (kDirMap.contains(props.direction))
-        pResult->direction = kDirMap[props.direction].toStdWString();
+    pResult->direction = getLabel(props.direction).toStdWString();
     if (props.dimension == Dimension::kAccel)
         pResult->dimension = QString("Accel").toStdWString();
     pResult->sign = props.sign;
     pResult->path = props.path.toStdWString();
     pResult->name = props.name.toStdWString();
+    pResult->node = props.node.toStdWString();
     pResult->component = props.component.toStdWString();
     pResult->numAverages = props.numAverages;
     pResult->transducer = props.transducer.toStdWString();
+    pResult->comment = props.comment.toStdWString();
 
     return pResult;
 }

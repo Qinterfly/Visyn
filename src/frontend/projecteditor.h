@@ -27,6 +27,7 @@ namespace Frontend
 {
 
 class CustomTable;
+class SetupEditor;
 
 class ProjectEditor : public QWidget
 {
@@ -38,11 +39,14 @@ public:
 
     QSize sizeHint() const override;
 
+    SetupEditor* setupEditor();
+
     void openTestlab(QString const& pathFile);
     void readResponses(QString const& pathFile);
     void readSpectrums(QString const& pathFile);
     void loadSpectrums();
     void solve();
+    void addResponsesTestlab(QList<Backend::Core::Response> const& responses, QString const& path);
     void refresh();
 
 signals:
@@ -69,7 +73,6 @@ private:
     void setInfo();
     void setExport();
     void showIntervalEditor();
-    void addResponsesTestlab(QList<Backend::Core::Response> const& responses, QString const& path);
     void setTestlabExportPath(QList<Backend::Core::Response> const& responses = {});
 
 private:
@@ -97,6 +100,7 @@ private:
     QComboBox* mpExportTypeComboBox;
     QWidget* mpTestlabExportWidget;
     Edit1s* mpTestlabExportPathEdit;
+    SetupEditor* mpSetupEditor;
 };
 
 class IntervalEditor : public QWidget

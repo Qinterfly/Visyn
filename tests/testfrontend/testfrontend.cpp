@@ -2,6 +2,7 @@
 
 #include "fileutility.h"
 #include "projecteditor.h"
+#include "setupeditor.h"
 #include "testfrontend.h"
 
 using namespace Tests;
@@ -32,6 +33,38 @@ void TestFrontend::testCreateProject()
 
     // Perform the solution
     pEditor->solve();
+}
+
+//! Read a response setup from a file
+void TestFrontend::testReadSetup()
+{
+    QString group = "try";
+    QString pathFile = Utility::combineFilePath(INPUT_DIR, group, "setup.csv");
+
+    // Retrieve the setup editor
+    SetupEditor* pEditor = mpMainWindow->projectEditor()->setupEditor();
+
+    // Read the setup
+    QVERIFY(pEditor->read(pathFile));
+}
+
+//! Open a Testlab project
+void TestFrontend::testOpenTestLab()
+{
+    QString group = "try";
+    QString pathFile = Utility::combineFilePath(INPUT_DIR, group, "try.lms");
+
+    // Retrieve the project editor
+    ProjectEditor* pEditor = mpMainWindow->projectEditor();
+    pEditor->openTestlab(pathFile);
+}
+
+//! Export data to a Testlab project
+void TestFrontend::testExportTestlab()
+{
+    Project const& project = mpMainWindow->project();
+    ProjectEditor* pEditor = mpMainWindow->projectEditor();
+    pEditor->addResponsesTestlab(project.solution.spectrums, "Section1/try3/ResponsesSpectra");
 }
 
 TestFrontend::~TestFrontend()

@@ -17,6 +17,7 @@ set(FRONTEND_HEADERS
     customlineedit.h
     viewmanager.h
     projecteditor.h
+    setupeditor.h
 )
 
 set(FRONTEND_SOURCES
@@ -29,6 +30,7 @@ set(FRONTEND_SOURCES
     customlineedit.cpp
     viewmanager.cpp
     projecteditor.cpp
+    setupeditor.cpp
 )
 
 qt_add_library(frontend STATIC

@@ -3,6 +3,8 @@
 
 #include <Eigen/Core>
 #include <QList>
+#include <QMetaProperty>
+#include <QMetaType>
 #include <QString>
 
 using namespace Eigen;
@@ -49,24 +51,70 @@ enum class ValueType
     kComplex
 };
 
+// Helper functions
+QString getLabel(Direction direction);
+Direction getDirection(QString const& label);
+
 //! Class to handle response properties
 struct ResponseProperties
 {
+    Q_GADGET
+    Q_PROPERTY(int id MEMBER id)
+    Q_PROPERTY(Direction direction MEMBER direction)
+    Q_PROPERTY(Domain domain MEMBER domain)
+    Q_PROPERTY(Dimension dimension MEMBER dimension)
+    Q_PROPERTY(int sign MEMBER sign)
+    Q_PROPERTY(double sampleRate MEMBER sampleRate)
+    Q_PROPERTY(QString path MEMBER path)
+    Q_PROPERTY(QString name MEMBER name)
+    Q_PROPERTY(QString node MEMBER node)
+    Q_PROPERTY(QString component MEMBER component)
+    Q_PROPERTY(int numAverages MEMBER numAverages)
+    Q_PROPERTY(QString transducer MEMBER transducer)
+    Q_PROPERTY(QString comment MEMBER comment)
+
+public:
     ResponseProperties();
     ~ResponseProperties() = default;
 
+    //! Channel identifier
     int id;
+
+    //! Absolute direction
     Direction direction;
+
+    //! Decomposition domain
     Domain domain;
+
+    //! Measurement dimension
     Dimension dimension;
+
+    //! Direction sign
     int sign;
+
+    //! Recording rate
     double sampleRate;
+
+    //! System path
     QString path;
+
+    //! Response name
     QString name;
+
+    //! Node name
     QString node;
+
+    //! Component name
     QString component;
+
+    //! Number of averages
     int numAverages;
+
+    //! Transducer serial number
     QString transducer;
+
+    //! User comment
+    QString comment;
 };
 
 //! Class to present signal data

@@ -19,6 +19,35 @@ matvar_t* createVariable(VectorXcd const& data);
 
 static double const skEps = std::numeric_limits<double>::epsilon();
 
+//! Helper functions to process enums
+namespace Backend::Core
+{
+QString getLabel(Direction direction)
+{
+    switch (direction)
+    {
+    case Direction::kX:
+        return "X";
+    case Direction::kY:
+        return "Y";
+    case Direction::kZ:
+        return "Z";
+    default:
+        break;
+    }
+    return QString();
+}
+
+Direction getDirection(QString const& label)
+{
+    QMap<QString, Direction> map = {{"X", Direction::kX}, {"Y", Direction::kY}, {"Z", Direction::kZ}};
+    QString key = label.toUpper();
+    if (map.contains(key))
+        return map[key];
+    return Direction::kNone;
+}
+}
+
 ResponseProperties::ResponseProperties()
     : id(0)
     , direction(Direction::kNone)

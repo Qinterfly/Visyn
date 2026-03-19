@@ -23,6 +23,9 @@ public:
 
 private slots:
     void testCreateProject();
+    void testReadSetup();
+    void testOpenTestLab();
+    void testExportTestlab();
 
 private:
     Frontend::MainWindow* mpMainWindow;
