@@ -15,6 +15,7 @@ public:
     CustomTable(QWidget* pParent = nullptr);
     virtual ~CustomTable();
 
+    QStringList horizontalHeaderLabels();
     void setDataAlignment(Qt::Alignment alignment);
 
 private:

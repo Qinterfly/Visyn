@@ -25,6 +25,20 @@ CustomTable::~CustomTable()
 
 }
 
+//! Retrieve horizontal header labels
+QStringList CustomTable::horizontalHeaderLabels()
+{
+    QStringList result;
+    int numCols = columnCount();
+    for (int i = 0; i != numCols; ++i)
+    {
+        QTableWidgetItem* pItem = horizontalHeaderItem(i);
+        if (pItem)
+            result.push_back(pItem->text());
+    }
+    return result;
+}
+
 //! Align the data using the specified flag
 void CustomTable::setDataAlignment(Qt::Alignment alignment)
 {
@@ -104,7 +118,7 @@ void CustomTable::pasteSelection()
     for (uint i = 0; i != numRows; ++i)
     {
         data[i] = rows[i].split('\t', Qt::SkipEmptyParts);
-        maxNumColumns = std::max(maxNumColumns, (int)data[i].size());
+        maxNumColumns = std::max(maxNumColumns, (int) data[i].size());
     }
 
     // Enlarge the table, if necessary

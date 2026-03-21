@@ -44,7 +44,7 @@ void TestFrontend::testReadSetup()
     // Retrieve the setup editor
     SetupEditor* pEditor = mpMainWindow->projectEditor()->setupEditor();
 
-    // Read the setup
+    // Import the setup
     QVERIFY(pEditor->read(pathFile));
 }
 

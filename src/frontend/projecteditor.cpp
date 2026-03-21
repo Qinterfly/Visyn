@@ -414,7 +414,7 @@ QGroupBox* ProjectEditor::createExportGroupBox()
     mpExportTypeComboBox->addItem("Matlab", ExportFormat::kMatlab);
     mpExportTypeComboBox->addItem("Testlab", ExportFormat::kTestlab);
     Utility::setIndexByKey(mpExportTypeComboBox, ExportFormat::kTestlab);
-    mpSetupEditor = new SetupEditor;
+    mpSetupEditor = new SetupEditor(mSettings);
 
     // Create the main layout
     QVBoxLayout* pMainLayout = new QVBoxLayout;
