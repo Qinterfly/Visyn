@@ -22,14 +22,14 @@ using namespace Backend::Core;
 using namespace Frontend;
 
 // From Testlab
-Response convert(Testlab::IResponse* pResponse);
-QList<Response> convert(std::vector<Testlab::IResponse*> const responses);
+Response convert(Testlab::Response const& response);
+QList<Response> convert(std::vector<Testlab::Response> const& responses);
 VectorXd convert(std::vector<double> const& data);
 VectorXcd convert(std::vector<double> const& real, std::vector<double> const& imag);
 
 // To Testlab
-Testlab::IResponse* convert(Response const& response);
-std::vector<Testlab::IResponse*> convert(QList<Response> const responses);
+Testlab::Response convert(Response const& response);
+std::vector<Testlab::Response> convert(QList<Response> const& responses);
 std::vector<double> convert(VectorXd const& data);
 
 enum ExportFormat
@@ -141,9 +141,6 @@ void ProjectEditor::loadSpectrums()
             setTestlabExportPath(mProject.spectrums);
             qInfo() << tr("Spectrums were successfully loaded from the Testlab project");
         }
-        for (auto* p : spectrums)
-            delete p;
-        spectrums.clear();
     }
     else
     {
@@ -736,39 +733,40 @@ void IntervalEditor::setData()
 }
 
 //! Helper function to convert a Testlab response
-Response convert(Testlab::IResponse* pResponse)
+Response convert(Testlab::Response const& response)
 {
     Response result;
 
     // Set data
-    result.setKeys(convert(pResponse->keys));
-    if (pResponse->imagValues.size() > 0)
-        result.setValues(convert(pResponse->realValues, pResponse->imagValues));
+    result.setKeys(convert(response.keys));
+    if (response.imagValues.size() > 0)
+        result.setValues(convert(response.realValues, response.imagValues));
     else
-        result.setValues(convert(pResponse->realValues));
+        result.setValues(convert(response.realValues));
 
     // Set properties
-    QString direction = QString::fromStdWString(pResponse->direction);
-    QString dimension = QString::fromStdWString(pResponse->dimension);
+    Testlab::ResponseHeader const& header = response.header;
+    QString dimension = QString::fromStdWString(header.dimension);
     ResponseProperties& props = result.props;
-    props.id = pResponse->channel;
-    props.direction = getDirection(direction);
+    props.id = header.channel;
     props.domain = result.isComplex() ? Domain::kFreq : Domain::kTime;
-    props.dimension = dimension == "Accel" ? Dimension::kAccel : Dimension::kNone;
-    props.sign = pResponse->sign;
     props.sampleRate = 0;
-    props.path = QString::fromStdWString(pResponse->path);
-    props.name = QString::fromStdWString(pResponse->name);
-    props.node = QString::fromStdWString(pResponse->node);
-    props.numAverages = pResponse->numAverages;
-    props.transducer = QString::fromStdWString(pResponse->transducer);
-    props.comment = QString::fromStdWString(pResponse->comment);
+    props.path = QString::fromStdWString(header.path);
+    props.name = QString::fromStdWString(header.name);
+    props.node = QString::fromStdWString(header.point.node);
+    props.component = QString::fromStdWString(header.point.component);
+    props.direction = (Direction) header.point.direction;
+    props.sign = header.point.sign;
+    props.numAverages = header.numAverages;
+    props.dimension = dimension == "Accel" ? Dimension::kAccel : Dimension::kNone;
+    props.transducer = QString::fromStdWString(header.transducer);
+    props.comment = QString::fromStdWString(header.comment);
 
     return result;
 }
 
 //! Helper function to convert Testlab responses
-QList<Response> convert(std::vector<Testlab::IResponse*> const responses)
+QList<Response> convert(std::vector<Testlab::Response> const& responses)
 {
     int numResponses = responses.size();
     QList<Response> result(numResponses);
@@ -800,45 +798,47 @@ VectorXcd convert(std::vector<double> const& real, std::vector<double> const& im
 }
 
 //! Convert response from the interop to custom format
-Testlab::IResponse* convert(Response const& response)
+Testlab::Response convert(Response const& response)
 {
-    Testlab::IResponse* pResult = new Testlab::IResponse;
+    Testlab::Response result;
 
     // Set data
-    pResult->keys = convert(response.keys());
+    result.keys = convert(response.keys());
     if (response.isComplex())
     {
-        pResult->realValues = convert(response.real());
-        pResult->imagValues = convert(response.imag());
+        result.realValues = convert(response.real());
+        result.imagValues = convert(response.imag());
     }
     else
     {
-        pResult->realValues = convert(response.realValues());
+        result.realValues = convert(response.realValues());
     }
 
     // Set properties
     ResponseProperties const& props = response.props;
-    pResult->channel = props.id;
-    pResult->direction = getLabel(props.direction).toStdWString();
+    Testlab::ResponseHeader& header = result.header;
+    header.type = Testlab::ResponseType::kAccel;
+    header.path = props.path.toStdWString();
+    header.name = props.name.toStdWString();
+    header.point.node = props.node.toStdWString();
+    header.point.component = props.component.toStdWString();
+    header.point.direction = (Testlab::Direction) props.direction;
+    header.point.sign = props.sign;
+    header.channel = props.id;
+    header.numAverages = props.numAverages;
     if (props.dimension == Dimension::kAccel)
-        pResult->dimension = QString("Accel").toStdWString();
-    pResult->sign = props.sign;
-    pResult->path = props.path.toStdWString();
-    pResult->name = props.name.toStdWString();
-    pResult->node = props.node.toStdWString();
-    pResult->component = props.component.toStdWString();
-    pResult->numAverages = props.numAverages;
-    pResult->transducer = props.transducer.toStdWString();
-    pResult->comment = props.comment.toStdWString();
+        header.dimension = QString("Accel").toStdWString();
+    header.transducer = props.transducer.toStdWString();
+    header.comment = props.comment.toStdWString();
 
-    return pResult;
+    return result;
 }
 
 //! Convert responses for interoperability
-std::vector<Testlab::IResponse*> convert(QList<Response> const responses)
+std::vector<Testlab::Response> convert(QList<Response> const& responses)
 {
     int numResponses = responses.size();
-    std::vector<Testlab::IResponse*> result(numResponses);
+    std::vector<Testlab::Response> result(numResponses);
     for (int i = 0; i != numResponses; ++i)
         result[i] = convert(responses[i]);
     return result;

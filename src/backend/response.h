@@ -52,8 +52,8 @@ enum class ValueType
 };
 
 // Helper functions
-QString getLabel(Direction direction);
-Direction getDirection(QString const& label);
+QString getDirectionLabel(Direction value);
+Direction getDirectionValue(QString const& label);
 
 //! Class to handle response properties
 struct ResponseProperties

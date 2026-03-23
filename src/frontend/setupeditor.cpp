@@ -66,7 +66,7 @@ void SetupEditor::replaceProperties(QList<Backend::Core::Response>& responses) c
         {
             QString sign = props.sign > 0 ? "+" : "-";
             QString prefix = response.isComplex() ? "Visyn Spectrum" : "Visyn Time";
-            props.name = QString("%1 %2:%3:%4%5").arg(prefix, props.component, props.node, sign, getLabel(props.direction));
+            props.name = QString("%1 %2:%3:%4%5").arg(prefix, props.component, props.node, sign, getDirectionLabel(props.direction));
         }
     }
 }
@@ -180,9 +180,9 @@ void SetupEditor::refresh()
             QMetaProperty property = metaObject.property(iProperty);
             QVariant value = property.readOnGadget(&props);
             if (field == "direction")
-                value = getLabel((Direction) value.toInt());
+                value = getDirectionLabel((Direction) value.toInt());
             else if (field == "sign")
-                value = value.toInt() > 0 ? "+" : "-";
+                value = value.toInt() < 0 ? "-" : "+";
             mpDataTable->setItem(iData, iField, Utility::createTableItem(value.toString()));
         }
     }
@@ -298,9 +298,9 @@ ResponseProperties buildProperties(QStringList const& fields, QStringList const&
         // Convert the value, if necessary
         QVariant value = values[i];
         if (field == "direction")
-            value = (int) getDirection(value.toString());
+            value = (int) getDirectionValue(value.toString());
         else if (field == "sign")
-            value = value.toString() == "+" ? 1 : -1;
+            value = value.toString() == "-" ? -1 : 1;
 
         // Set the property value
         property.writeOnGadget(&result, value);

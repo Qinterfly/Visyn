@@ -22,9 +22,9 @@ static double const skEps = std::numeric_limits<double>::epsilon();
 //! Helper functions to process enums
 namespace Backend::Core
 {
-QString getLabel(Direction direction)
+QString getDirectionLabel(Direction value)
 {
-    switch (direction)
+    switch (value)
     {
     case Direction::kX:
         return "X";
@@ -38,7 +38,7 @@ QString getLabel(Direction direction)
     return QString();
 }
 
-Direction getDirection(QString const& label)
+Direction getDirectionValue(QString const& label)
 {
     QMap<QString, Direction> map = {{"X", Direction::kX}, {"Y", Direction::kY}, {"Z", Direction::kZ}};
     QString key = label.toUpper();
